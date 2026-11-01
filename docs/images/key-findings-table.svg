@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="560" viewBox="0 0 1600 560" role="img" aria-labelledby="title desc">
+<title id="title">What the monitor revealed on a live Trading 212 account (ratios only)</title>
+<desc id="desc">54 positions behaved like 11.3 equal holdings; 44 positions under 1% made up 27% of the portfolio; three S&amp;P 500 trackers held 24% and two FTSE All-World funds 14%, and one gold fund was held twice; annualised money-weighted return 10.5% versus 10.0% simple unrealised return; fees 0.13% of the amount traded; history pagination had returned only the first 50 records.</desc>
+<rect width="1600" height="560" fill="#ffffff"/>
+<path d="M0 0H1600V560H0Z" fill="none" stroke="#cbd5df" stroke-width="2"/>
+<rect x="0" y="100" width="1600" height="76" fill="#f3f6f8"/>
+<rect x="0" y="252" width="1600" height="76" fill="#f3f6f8"/>
+<rect x="0" y="404" width="1600" height="76" fill="#f3f6f8"/>
+<g stroke="#cbd5df" stroke-width="2"><path d="M560 0V560M1180 0V560M0 100H1600M0 176H1600M0 252H1600M0 328H1600M0 404H1600M0 480H1600"/></g>
+<g font-family="Arial,Helvetica,sans-serif" fill="#20252b">
+<text x="35" y="64" font-size="32" font-weight="700">Question the monitor answers</text>
+<text x="595" y="64" font-size="32" font-weight="700">Finding on a live account</text>
+<text x="1215" y="64" font-size="32" font-weight="700">Why it matters</text>
+<g font-size="27">
+<text x="35" y="148">How diversified is it really?</text>
+<text x="595" y="148"><tspan font-weight="700">54</tspan> positions behave like <tspan font-weight="700">11.3</tspan></text>
+<text x="1215" y="148">A few holdings drive results</text>
+
+<text x="35" y="224">Is it fragmented?</text>
+<text x="595" y="224"><tspan font-weight="700">44</tspan> positions under 1% = <tspan font-weight="700">27%</tspan> of value</text>
+<text x="1215" y="224">Hard to monitor, little effect</text>
+
+<text x="35" y="300">Do funds overlap?</text>
+<text x="595" y="300">3 S&amp;P 500 funds (<tspan font-weight="700">24%</tspan>), 2 All-World (<tspan font-weight="700">14%</tspan>)</text>
+<text x="1215" y="300">Same index, no extra spread</text>
+
+<text x="35" y="376">Any duplicate holdings?</text>
+<text x="595" y="376">One gold ETC bought on <tspan font-weight="700">two</tspan> listings</text>
+<text x="1215" y="376">Same ISIN held twice</text>
+
+<text x="35" y="452">Is the investing working?</text>
+<text x="595" y="452"><tspan font-weight="700">10.5%</tspan> a year (XIRR) vs 10.0% simple</text>
+<text x="1215" y="452">Timing of deposits matters</text>
+
+<text x="35" y="528">What does it cost?</text>
+<text x="595" y="528">Fees <tspan font-weight="700">0.13%</tspan> of amount traded</text>
+<text x="1215" y="528">FX fee is the largest cost</text>
+</g>
+</g>
+</svg>

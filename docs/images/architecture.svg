@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="560" viewBox="0 0 1600 560" role="img" aria-labelledby="title desc">
+<title id="title">Trading 212 portfolio monitor: six-stage architecture</title>
+<desc id="desc">Data flows from the Trading 212 Public API through ingestion threads, transformation in PortfolioAnalytics, analytics in insights.py, reporting state and daily snapshots, to a five-page terminal interface. Cross-cutting controls: rate-limit handling, last-good-data fallback, credentials kept out of git, and a demo data mode.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#5b6773"/></marker>
+</defs>
+<rect width="1600" height="560" fill="#ffffff"/>
+<path d="M0 0H1600V560H0Z" fill="none" stroke="#cbd5df" stroke-width="2"/>
+<g font-family="Arial,Helvetica,sans-serif" fill="#20252b">
+<text x="40" y="52" font-size="30" font-weight="700">Trading 212 Portfolio Monitor: data flow</text>
+
+<g stroke="#cbd5df" stroke-width="2">
+<rect x="40" y="90" width="230" height="300" rx="10" fill="#f3f6f8"/>
+<rect x="300" y="90" width="230" height="300" rx="10" fill="#f3f6f8"/>
+<rect x="560" y="90" width="230" height="300" rx="10" fill="#f3f6f8"/>
+<rect x="820" y="90" width="230" height="300" rx="10" fill="#f3f6f8"/>
+<rect x="1080" y="90" width="230" height="300" rx="10" fill="#f3f6f8"/>
+<rect x="1340" y="90" width="220" height="300" rx="10" fill="#e8f1fb"/>
+</g>
+<g stroke="#5b6773" stroke-width="3" marker-end="url(#arrow)">
+<path d="M272 240H296"/><path d="M532 240H556"/><path d="M792 240H816"/><path d="M1052 240H1076"/><path d="M1312 240H1336"/>
+</g>
+
+<g font-size="17" fill="#5b6773" font-weight="700">
+<text x="60" y="122">STAGE 1</text><text x="320" y="122">STAGE 2</text><text x="580" y="122">STAGE 3</text>
+<text x="840" y="122">STAGE 4</text><text x="1100" y="122">STAGE 5</text><text x="1360" y="122">STAGE 6</text>
+</g>
+<g font-size="22" font-weight="700">
+<text x="60" y="152">Data sourcing</text>
+<text x="320" y="152">Ingestion</text>
+<text x="580" y="152">Cleaning &amp;</text><text x="580" y="178">transformation</text>
+<text x="840" y="152">Modelling &amp;</text><text x="840" y="178">analytics</text>
+<text x="1100" y="152">Preparation</text><text x="1100" y="178">for reporting</text>
+<text x="1360" y="152">Visualisation</text><text x="1360" y="178">&amp; insights</text>
+</g>
+<g font-size="17">
+<text x="60" y="200">Trading 212 Public</text><text x="60" y="222">API (read-only)</text>
+<text x="60" y="256">Account summary</text><text x="60" y="278">Positions, pies</text><text x="60" y="300">Instruments</text>
+<text x="60" y="322">Orders, dividends,</text><text x="60" y="344">transactions</text>
+
+<text x="320" y="214">Trading212Client</text>
+<text x="320" y="248">Live thread: 30s</text><text x="320" y="270">History thread:</text><text x="320" y="292">all pages, 30 min</text>
+<text x="320" y="326">Rate-limit aware</text><text x="320" y="348">pagination</text>
+
+<text x="580" y="214">PortfolioAnalytics</text>
+<text x="580" y="248">Account-currency</text><text x="580" y="270">values, quote prices</text>
+<text x="580" y="304">Pie look-through</text><text x="580" y="326">App-style holdings</text><text x="580" y="348">GBX → GBP</text>
+
+<text x="840" y="214">insights.py</text>
+<text x="840" y="248">XIRR, growth vs</text><text x="840" y="270">contributions</text>
+<text x="840" y="304">No-sell planner,</text><text x="840" y="326">scenario impact</text><text x="840" y="348">Income, overlap, risk</text>
+
+<text x="1100" y="214">DataFeed state</text>
+<text x="1100" y="248">Daily snapshot</text><text x="1100" y="270">CSVs (local only)</text>
+<text x="1100" y="304">portfolio_config</text><text x="1100" y="326">.json targets</text>
+
+<text x="1360" y="214">Rich full-screen</text><text x="1360" y="236">terminal UI</text>
+<text x="1360" y="270">1 Overview</text><text x="1360" y="292">2 Planner</text><text x="1360" y="314">3 Performance</text>
+<text x="1360" y="336">4 Income</text><text x="1360" y="358">5 Risk</text>
+</g>
+
+<rect x="40" y="420" width="1520" height="110" rx="10" fill="#fff8e6" stroke="#e6c96a" stroke-width="2"/>
+<text x="64" y="456" font-size="20" font-weight="700">Cross-cutting controls</text>
+<g font-size="18">
+<text x="64" y="492">• Rate limits: per-endpoint pacing, retries off the UI thread</text>
+<text x="64" y="518">• Failures keep the last good data and show the reason</text>
+<text x="820" y="492">• Credentials in .env, never committed; read-only API key</text>
+<text x="820" y="518">• Demo mode: fictional portfolio for screenshots and review</text>
+</g>
+</g>
+</svg>

@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+
+# Personal data: stays on this machine, never committed
+snapshots/*.csv
+portfolio_config.json
