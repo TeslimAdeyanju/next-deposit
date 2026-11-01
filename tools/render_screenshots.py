@@ -48,7 +48,7 @@ def main():
         console = Console(width=WIDTH, record=True, file=open("/dev/null", "w"))
         console.print(build_screen(ctx))
         path = OUT / f"page-{page + 1}-{name.lower()}.svg"
-        console.save_svg(str(path), title=f"Trading 212 Portfolio Monitor · {name} (demo data)")
+        console.save_svg(str(path), title=f"Next Deposit · {name} (demo data)")
         print(f"wrote {path.relative_to(ROOT)}")
 
 

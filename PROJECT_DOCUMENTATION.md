@@ -1,408 +1,207 @@
-# Trading 212 Portfolio Monitor: Project Documentation
+# Next Deposit: Project Documentation
 
-**Personal investment analytics | Trading 212 Public API (v0) | Stocks ISA / Invest | Python terminal application**
+**A planner and monitor for a monthly investor | Trading 212 Stocks ISA | Python**
 
-This document explains the investor problem, how a Trading 212 account is structured, the system's architecture, its six-stage data lifecycle, the analytical measures, the validation performed and the known limitations. It is written for readers who want to understand **what the project does, why each design choice matters, how to reproduce it, and which results are estimates rather than reported figures**.
+This document explains why I built Next Deposit, the four questions it answers, how each answer is worked out, what it found on my own account, how the system is built, how I checked it, and where it falls short. Formulas for every figure are in [METRICS.md](docs/METRICS.md). Day-to-day use is in the [User Guide](docs/USER_GUIDE.md).
 
-**Project status (1 November 2026):**
-- **Data:** the monitor runs against a live Trading 212 Stocks ISA, with all five pages working from complete account history: 115 transactions, 158 orders and 28 dividends after the pagination fix.
-- **Demo mode:** reproduces every page from a fictional portfolio, without credentials.
-- **Testing:** rendering and keyboard interaction were tested in a pseudo-terminal, and contributions were reconciled to the account's reported cost.
-- **Not yet built:** a benchmark comparison (needs a third-party price source) and an automated unit test suite.
-- **Estimates:** fee and stamp-duty figures in the planner are estimates, not broker quotes.
+**Status (1 November 2026):**
+- **Live use:** running daily against my Stocks ISA, using the full account history (115 transactions, 158 orders, 28 dividends).
+- **Demo mode:** reproduces every page without an account.
+- **Not built yet:** a benchmark comparison, which needs an outside price source, and an automated test suite.
 
 ## Contents
 
-### Part I: Background and Research Context
-
-- [Research Question and Executive Summary](#research-question-and-executive-summary)
-- [Retail Investing on Trading 212](#retail-investing-on-trading-212)
-- [Objectives, Scope and Definitions](#objectives-scope-and-definitions)
-
-### Part II: Research Methodology
-
-**Methodology: Six-Stage Data Analytics Lifecycle**
-
-1. [Data Sourcing](#stage-1-data-sourcing): identify the authoritative account data and its limits.
-2. [Data Ingestion](#stage-2-data-ingestion): collect live and historical records within rate limits.
-3. [Data Cleaning & Transformation](#stage-3-data-cleaning--transformation): standardise currencies, pies and instrument metadata.
-4. [Data Modelling & Analytics](#stage-4-data-modelling--analytics): calculate performance, income, risk and allocation measures.
-5. [Data Preparation for Reporting](#stage-5-data-preparation-for-reporting): maintain reporting state, snapshots and investor targets.
-6. [Data Visualisation & Insights](#stage-6-data-visualisation--insights): present decisions on a five-page terminal interface.
-
-### Part III: Findings, Validation and Project Outcomes
-
-- [Verified Run: 1 November 2026](#verified-run-1-november-2026)
-- [Findings from a Live Account](#findings-from-a-live-account)
-- [Data Quality, Auditability and Limitations](#data-quality-auditability-and-limitations)
-- [Reproducibility and Operational Workflow](#reproducibility-and-operational-workflow)
-- [Project Deliverables and Next Steps](#project-deliverables-and-next-steps)
-- [Glossary and Reference Material](#glossary-and-reference-material)
+1. [The problem](#1-the-problem)
+2. [Question 1: Where should my next deposit go?](#2-question-1-where-should-my-next-deposit-go)
+3. [Question 2: Is my investing actually working?](#3-question-2-is-my-investing-actually-working)
+4. [Question 3: Am I as diversified as I think?](#4-question-3-am-i-as-diversified-as-i-think)
+5. [Question 4: What is it earning, and what is it costing?](#5-question-4-what-is-it-earning-and-what-is-it-costing)
+6. [How it's built](#6-how-its-built)
+7. [How I checked it](#7-how-i-checked-it)
+8. [Limitations and what's next](#8-limitations-and-whats-next)
+9. [Glossary and references](#9-glossary-and-references)
 
 ---
 
-# PART I: BACKGROUND AND RESEARCH CONTEXT
+## 1. The problem
 
-## Research Question and Executive Summary
+I invest monthly through a Trading 212 Stocks ISA: index funds, some individual shares and a dividend "pie" (a basket that splits each deposit across about 50 stocks). Each month brings the same decision, **where does this money go?**, and the app doesn't help with it. It shows what each holding is worth and its gain, but:
 
-### Why I undertook this project
+- **There's no target.** It can't tell you what's under- or over-weight relative to the mix you want, or what a purchase would change.
+- **The return ignores timing.** "+10%" looks the same whether the money went in two years ago or last month.
+- **Pies are a black box.** A pie appears as one line, but the stocks inside change your currency exposure and can duplicate funds you already own.
+- **Costs and income are scattered.** FX fees, stamp duty, dividends and the ISA allowance are only visible in individual transactions.
 
-I invest monthly through a Trading 212 Stocks ISA, using a mix of index funds, individual shares and a dividend "pie". The app shows each holding's value and gain. It doesn't answer the questions that matter when new money arrives:
-- Where should this month's deposit go to keep the portfolio balanced?
-- Is my investing actually working, once you allow for *when* each deposit was made?
-- What am I paying in fees?
-- Am I as diversified as the number of holdings suggests?
+> **Research question:** *For a regular monthly investor, where should the next deposit go, and is the portfolio genuinely performing, diversified and cost-efficient?*
 
-I developed this project to apply **financial analysis, accounting discipline and software engineering** to my own investing. The aim was a tool I would actually leave running. Every figure needed a clear definition, and estimates had to be distinguished from reported values.
-
-### Research question
-
-> **For a regular monthly investor, where should the next deposit go, and is the portfolio genuinely performing, diversified and cost-efficient?**
-
-The question has two parts:
-- **A forward-looking decision:** how to allocate new money without selling.
-- **A backward-looking assessment:** money-weighted performance, income, costs and concentration.
-
-Neither can be read directly from the broker's app.
-
-### What the account data shows on its own
-
-Trading 212 reports an account value, the cost of current holdings and an unrealised profit or loss. These are accurate, but limited in three ways:
-
-1. **Unrealised return ignores timing.** A 10% gain earned over two years is not the same as 10% earned in two months.
-2. **Pies hide their contents.** A pie appears as one holding, but its stocks change your currency exposure and can overlap with funds you hold directly.
-3. **The number of holdings overstates diversification.** Fifty small positions alongside a few large funds behave like a much smaller portfolio.
-
-### Analytical approach
-
-The project uses the official Trading 212 Public API as its only source of account data:
-- **Python** for ingestion, transformation and analysis, in a module of pure functions (`insights.py`) that can be checked independently of the interface.
-- **Daily CSV snapshots** for history the API doesn't provide.
-- **A full-screen terminal interface** built with Rich for presentation.
-
-Each measure is documented with its formula in [METRICS.md](docs/METRICS.md). A clear chart is not a substitute for a correctly defined measure.
+I wanted a tool I'd actually leave running, so three constraints shaped it:
+1. **Read-only.** It never places orders.
+2. **Documented figures.** Every number has a written definition, and estimates are labelled as estimates.
+3. **Private.** My account data never leaves my machine.
 
 ---
 
-## Retail Investing on Trading 212
+## 2. Question 1: Where should my next deposit go?
 
-### Account structure
+**The decision.** I have £X to invest this month and a mix I'm aiming for. What should I buy, without selling anything (selling in an ISA is tax-free, but it costs spreads and FX fees, and breaks the habit)?
 
-| Concept | Meaning for the analysis |
+**How Next Deposit answers it.** I set a target weight per holding on the Planner page, directly on screen. The planner then:
+
+1. Works out the portfolio total *after* the deposit.
+2. Calculates each holding's shortfall against its target at that new total.
+3. Fills the biggest shortfalls first. If the deposit is more than all the shortfalls combined, it splits the remainder by target weight.
+
+It never suggests a sale, and holdings without a target get no new money. A pie counts as one holding, because money added to a pie is split across its stocks by the pie's own targets. A side panel shows which stocks inside the pie are furthest below target.
+
+**Seeing the impact before buying.** Planning a purchase is only useful if you can see what it changes. Every plan, auto-split or a "what if" scenario where I type my own amounts, shows before → after for:
+
+| | |
 | --- | --- |
-| **Stocks ISA** | UK tax-free wrapper with an annual subscription allowance of £20,000 (tax year 6 April to 5 April) |
-| **Position** | One instrument held, including any quantity inside pies (`quantityInPies`) |
-| **Pie** | A user-defined basket with target weights. Deposits are split by those targets. It has its own value, cost and cash |
-| **Fractional shares** | Value orders in £; Trading 212's minimum order is £1 |
-| **Quote currency** | The currency an instrument trades in: USD, EUR, GBP, or **GBX** (pence) for many London listings |
-| **Account currency** | GBP. Values, costs and returns are converted and **include FX movements** |
+| Value | Portfolio value after the deposit, net of estimated fees |
+| Fees | FX conversion (0.15% on non-GBP shares) and stamp duty (0.5% on UK shares). Pie purchases are spread across the pie's actual stocks |
+| Currency mix | GBP / USD / EUR exposure, look-through |
+| Asset type | ETF vs individual stocks |
+| Concentration | Largest holding, and anything over 25% |
+| ISA allowance | What's left this tax year |
 
-### Costs relevant to a monthly investor
+**What it showed.** A test scenario of £50 into Microsoft and £25 into an S&P 500 fund raised USD exposure by about ten percentage points, and made that fund, not the pie, the largest holding. That's the kind of side effect that isn't obvious from the app.
 
-| Cost | When it applies | Rate used for estimates |
-| --- | --- | --- |
-| FX conversion | Buying instruments quoted in a non-GBP currency | 0.15% |
-| Stamp Duty Reserve Tax | Buying UK shares (ETFs are exempt) | 0.5% |
-
-Actual fees charged are read from each order fill (`fill.walletImpact.taxes`). The rates above are used only to *estimate* the cost of planned purchases.
-
-### The Trading 212 Public API
-
-The API is in beta. It is read-only for this project's purposes (no order permissions are needed) and is rate-limited **per account**. It provides current positions, pies, instrument metadata and paginated history of orders, dividends and transactions. **It doesn't provide historical prices or portfolio values**, which shaped the snapshot design in Stage 5.
+**Design choices worth noting**
+- Targets are shares of the *whole* portfolio. If some holdings have no target, every targeted holding looks under target once new money arrives. The planner says so, rather than hiding it.
+- Typing a target **replaces** the old value, and is saved straight away. The cursor follows the *holding*, not the row number, because rows reorder when the pie loads. Both were real bugs found in testing.
 
 ---
 
-## Objectives, Scope and Definitions
+## 3. Question 2: Is my investing actually working?
 
-**Objectives**
+**Why the app's figure isn't enough.** Trading 212 reports unrealised gain on what you currently hold. That ignores *when* each deposit was made, and it isn't annualised. £100 up 10% over two years is roughly 4.9% a year. £100 up 10% in two months is far better.
 
-1. Present holdings exactly as the app does (each pie as one line), while analysing everything underneath it ("look-through").
-2. Recommend how to split a deposit toward target weights **without selling**, and show the impact of any proposed purchase before it is made.
-3. Measure performance as a **money-weighted annualised return (XIRR)** and separate money contributed from market growth.
-4. Report income, costs, ISA allowance usage, concentration, fund overlap and deposit-adjusted risk.
-5. Run continuously, recover from API failures without losing the screen, and never place orders.
+**How Next Deposit answers it.** From the complete deposit, withdrawal and transfer history, it reports:
 
-### Scope
-
-| In scope | Out of scope |
+| Measure | What it tells you |
 | --- | --- |
-| One Trading 212 Invest or Stocks ISA account | CFD accounts, other brokers |
-| Live positions, pies, full transaction/order/dividend history | Historical market prices, benchmarks (needs an external source) |
-| Daily snapshots generated by the monitor | Tax calculations beyond ISA allowance tracking |
-| Allocation guidance by user-defined targets | Investment advice or security selection |
+| **Your money in (net)** | Deposits + transfers in − withdrawals − transfers out |
+| **Market growth** | Total value − net money in: what the market added on top |
+| **Real return (XIRR)** | The annualised, money-weighted return, accounting for the date of every deposit |
+| **Net money in per month** | Last 12 months, plus the current deposit streak |
+| **Fees actually paid** | FX and stamp duty charged on every fill, as a % of the amount traded |
 
-### Key definitions
+**Getting complete data was the hard part.** The API returns history in pages of 50. Its "next page" link already contained the API's path prefix, and the original code added it a second time. **Every history request had quietly been returning only the first 50 records.** Any total built on that (money in, fees, dividends) would have been wrong without any visible error. After the fix, the full history loaded: 115 transactions and 158 orders, not 50 of each.
 
-| Term | Definition used |
+**What it showed.** A money-weighted return of **10.5% a year**, against a simple unrealised return of **10.0%**. Net money in reconciled to Trading 212's reported cost of holdings **to within £0.22**.
+
+---
+
+## 4. Question 3: Am I as diversified as I think?
+
+**Why the app's view misleads.** Fifty-plus holdings sounds diversified. But size matters more than count, and funds can hold the same companies under different names.
+
+**How Next Deposit answers it.** It analyses the portfolio **look-through**: every stock inside the pie is counted by its own value, currency and type, alongside the funds and shares held directly.
+
+| Measure | Meaning |
 | --- | --- |
-| **Holdings** | App-style view: direct quantity of each instrument plus one row per pie |
-| **Positions (look-through)** | Every underlying instrument, including those held in pies |
-| **Net money in** | Deposits + signed transfers − withdrawals |
-| **Market growth** | Total value − net money in |
-| **XIRR** | Annualised rate that sets the net present value of all contributions and today's value to zero |
-| **Effective number of holdings** | 1 ÷ Σ(weight²), the inverse Herfindahl index |
-| **Overlap** | Positions sharing an ISIN, or tracking the same index family |
+| **Effective number of holdings** | 1 ÷ Σ(weight²): how many equal-sized positions the portfolio behaves like |
+| **Positions under 1%** | How much of the portfolio sits in positions too small to matter individually |
+| **Overlap** | Funds tracking the same index (S&P 500, FTSE All-World, MSCI World, gold), and the same fund (identical ISIN) held on two listings |
+| **Risk from history** | Drawdown, best and worst day, and volatility, from the daily snapshots, **with deposits removed** so adding money isn't counted as a gain |
+
+**What it showed.**
+- **Few effective holdings:** 54 positions behaved like **11.3** equal holdings.
+- **Many tiny positions:** **44** were each under 1%, together **27%** of the portfolio.
+- **Overlapping funds:** three S&P 500 trackers held **24%** and two FTSE All-World funds **14%**, adding lines without adding diversification.
+- **A duplicate:** one gold ETC was held on two listings with the same ISIN.
 
 ---
 
-# PART II: RESEARCH METHODOLOGY
+## 5. Question 4: What is it earning, and what is it costing?
 
-## Methodology: Six-Stage Data Analytics Lifecycle
-
-### Methodology roadmap
-
-The project follows six consecutive stages, named for **the work performed** rather than the library used.
-
-![Trading 212 portfolio monitor six-stage architecture](docs/images/architecture.svg)
-
-| Stage | Purpose | Main assets / implementation |
-| --- | --- | --- |
-| **1. Data Sourcing** | Identify authoritative account data and its limits | Trading 212 Public API v0; read-only key in `.env` |
-| **2. Data Ingestion** | Collect live and historical records reliably | `Trading212Client`, `DataFeed` threads, rate-limit-aware pagination |
-| **3. Data Cleaning & Transformation** | Standardise currencies, pies and metadata | `PortfolioAnalytics` (holdings and positions views) |
-| **4. Data Modelling & Analytics** | Calculate decision and assessment measures | `insights.py` (pure functions) |
-| **5. Data Preparation for Reporting** | Maintain state, history and targets | `DataFeed.state`, `snapshots/*.csv`, `portfolio_config.json` |
-| **6. Data Visualisation & Insights** | Communicate results and support decisions | Rich full-screen UI: Overview, Planner, Performance, Income, Risk |
-
----
-
-## Stage 1: Data Sourcing
-
-**Purpose.** Establish where account data comes from, what it contains and what it cannot provide.
-
-The only source is the official Trading 212 Public API, using a **read-only** key. I used eight endpoints:
-
-| Endpoint | Provides | Approx. rate limit |
-| --- | --- | --- |
-| `/equity/account/summary` | Total value, cost, unrealised P&L, cash | 1 per 2s |
-| `/equity/positions` | Quantity, prices, value, cost, quantity in pies | 1 per 1s |
-| `/equity/metadata/instruments` | Instrument type, short name (≈18,500 instruments) | 1 per 50s |
-| `/equity/pies` | Pie value, invested amount, result, cash | 1 per 30s |
-| `/equity/pies/{id}` | Pie name and per-slice target vs current share | 1 per 5s |
-| `/equity/history/orders` | Fills, prices, fees and taxes | 6 per min |
-| `/equity/history/dividends` | Dividend payments | 6 per min |
-| `/equity/history/transactions` | Deposits, withdrawals, transfers, interest | 6 per min |
-
-I took the payload shapes from live responses, not assumptions. That revealed nested order records (`order` + `fill`), signed transfer amounts and pence-denominated (GBX) prices.
-
-**Output:** A documented source inventory and its constraints. In particular, there is no historical price series.
-
----
-
-## Stage 2: Data Ingestion
-
-**Purpose.** Collect current and historical data continuously without breaking the interface or exceeding rate limits.
-
-- **Two background threads.** The *live* thread polls summary and positions every 30 seconds, pies at most every 30 seconds, and instruments until they load. The *history* thread downloads **all pages** of orders, dividends and transactions every 30 minutes, waiting out rate limits between pages.
-- **Failure isolation.** The API client never raises or prints; a failed call returns `None` and a readable reason. The interface keeps the last good data and shows the reason in its status bar.
-- **Pagination.** The API's `nextPagePath` already includes the `/api/v0` prefix. The original implementation appended it again, so **only the first 50 records of any history were ever retrieved**. Correcting this increased coverage to the full history (e.g. 158 orders rather than 50).
-
-**Output:** A lock-protected state object holding the latest complete data set.
-
----
-
-## Stage 3: Data Cleaning & Transformation
-
-**Purpose.** Convert raw payloads into consistent, analysable records.
-
-- **Two views of the same data.** *Holdings* scale each position to the quantity held outside pies and add one row per pie, matching the app. *Positions* retain every underlying instrument for look-through analysis.
-- **Currency handling.** Values and returns use the account currency (GBP, including FX effects); entry and current prices remain in the quote currency, with GBX shown as pence and grouped with GBP for exposure.
-- **Enrichment.** Instrument metadata supplies type (ETF or stock) and a clean ticker. Raw tickers such as `VUAGl_EQ` are retained for snapshots, and display names such as `VUAG` are used on screen and as planner keys.
-- **Pie valuation.** Value = invested value at average price + uninvested pie cash, matching the figure the app displays.
-
-**Output:** Standardised holdings and positions with documented fields (`_value`, `_cost`, `_pnl`, `_weight`, `_currency`, `_type`, `_price`, `_avg_price`, …).
-
----
-
-## Stage 4: Data Modelling & Analytics
-
-**Purpose.** Turn standardised records into measures that answer the research question.
-
-All calculations live in `insights.py` as pure functions, separate from presentation:
-
-| Area | Measures |
+| Area | What Next Deposit shows |
 | --- | --- |
-| Decision support | No-sell deposit split toward targets; scenario impact on value, fees, currency mix, asset-type mix, concentration and ISA allowance |
-| Performance | Net money in, market growth, XIRR, deposit streak, monthly contributions, fees actually paid |
-| Income | Trailing-12-month dividends, monthly income, yield on cost, top payers |
-| Structure | Largest holding, top-5 share, effective number of holdings, positions under 1%, index and ISIN overlap |
-| Risk | Deposit-adjusted period return, maximum and current drawdown, best and worst day, annualised volatility |
+| **Dividends** | Last 12 months, by month, top payers, yield on cost (12-month dividends ÷ cost of holdings), and a simple "if payouts repeat" estimate for the next 12 months |
+| **Costs** | Fees actually charged, by type, from every order fill |
+| **ISA allowance** | Deposits this tax year (6 April to 5 April) against the £20,000 allowance, and days left |
 
-Two design choices matter for correctness:
-- **Risk measures remove each day's deposits**, so adding money is not mistaken for a gain.
-- **The planner never sells.** It fills the largest shortfalls against targets first, then splits any remainder by target weight.
-
-Formulas: [METRICS.md](docs/METRICS.md).
+**What it showed.**
+- **Fees** were **0.13%** of the amount traded, most of it FX conversion on US shares. That points toward GBP-quoted funds where the same exposure is available.
+- **Dividend yield on cost** is still low, because the dividend pie is under a year old. It'll become a meaningful trend as the history builds.
 
 ---
 
-## Stage 5: Data Preparation for Reporting
+## 6. How it's built
 
-**Purpose.** Supply each page with consistent, up-to-date inputs, and create the history the API lacks.
+![How Next Deposit works](docs/images/architecture.svg)
 
-- **Daily snapshots.** On the first refresh of each day the monitor appends portfolio and position rows to CSV files (`snapshots/`). These feed the daily value chart and the risk measures, and can be analysed in Excel or Power BI. They are kept **locally only**, never committed.
-- **Investor targets.** `portfolio_config.json` stores the monthly deposit, ISA settings and target weights. It is created from current weights on first run and edited from the Planner page.
-- **Demo data.** `demo_data.py` produces a complete, fictional data set in the same shape as the API, including generated snapshot history, so the whole lifecycle can be reviewed without an account.
+**Source.** The official Trading 212 Public API (beta), with a **read-only** key. It provides positions, pies, instrument metadata and paginated history, but **no historical prices or portfolio values**, and it's rate-limited per account. Some endpoints allow only one request every 30 or 50 seconds.
 
----
+**Decisions that made it usable day to day**
 
-## Stage 6: Data Visualisation & Insights
-
-**Purpose.** Present the analysis where decisions are made, in a view that can run all day.
-
-The interface is a full-screen terminal application that updates in place every second (countdown) and every 30 seconds (data). It adapts to the terminal: two columns at 140+ characters, stacked below that, with the value chart taking whatever height remains.
-
-| Page | Decision it supports |
+| Decision | Why |
 | --- | --- |
-| [Overview](docs/images/page-1-overview.svg) | What do I own, and how is it doing today? |
-| [Planner](docs/images/page-2-planner.svg) | Where should this deposit go, and what will it change? |
-| [Performance](docs/images/page-3-performance.svg) | Is my investing working after allowing for timing and costs? |
-| [Income](docs/images/page-4-income.svg) | What is the portfolio paying me? |
-| [Risk](docs/images/page-5-risk.svg) | How concentrated, overlapping and volatile is it? |
+| **Two background threads** (live every 30s; full history every 30 min) | The screen never freezes on the network. Slow history paging waits out rate limits without blocking anything |
+| **Keep the last good data on failure**, and show the reason in the status bar | A rate limit or network blip shouldn't blank the screen or show stale numbers as fresh |
+| **Two views of the portfolio**: holdings (pie as one line, matching the app) and look-through positions | Decisions are made at the holding level; diversification and currency exposure need the look-through |
+| **Daily snapshots** (CSV, local only) | The API has no history of values, so the tool builds its own for trends and risk |
+| **All calculations in `insights.py`**, as pure functions | Each figure can be checked on its own, separate from the screen |
+| **Full-screen terminal UI** (Rich), keyboard-driven | Built to be left running. A web version was tried and dropped because the terminal suited monitoring better |
+| **Demo mode** (`--demo`): a fictional portfolio in exact API shapes | Lets anyone try every page without an account; all screenshots come from it |
 
-A web front end was prototyped and **removed**, because the terminal suited continuous monitoring better.
+**Code layout:** `trading212_dashboard.py` (API client, portfolio model, data feed, interface), `insights.py` (calculations), `demo_data.py` (fictional portfolio), `tools/render_screenshots.py`. More in the [Development Guide](docs/DEVELOPMENT.md).
 
 ---
 
-# PART III: FINDINGS, VALIDATION AND PROJECT OUTCOMES
-
-## Verified Run: 1 November 2026
+## 7. How I checked it
 
 | Check | Result |
 | --- | --- |
-| Live account connection (read-only key) | Passed |
-| Full history retrieval after pagination fix | 115 transactions, 158 orders, 28 dividends |
-| Net money in vs Trading 212's reported cost of holdings | Agreed to within £0.22 |
-| Holdings view vs Trading 212 app (pie as one line, direct quantities) | Matched line by line |
-| All five pages rendered at 160×50 and 110×45 | Passed (narrow layout drops the orders panel to fit) |
-| Keyboard interaction in a pseudo-terminal (pages, planner edit and save, scenario mode, quit) | Passed, no exceptions |
-| Rate limiting with a second client on the same account | Last good data retained; reason shown |
-| Demo mode end-to-end, without credentials | Passed |
-| Credentials or account data in the repository | None (`.env`, snapshots and targets git-ignored) |
+| Holdings view against the Trading 212 app, including the pie | Matched line by line |
+| Net money in against Trading 212's reported cost of holdings | Within £0.22 |
+| Full history retrieval after the pagination fix | 115 transactions, 158 orders, 28 dividends |
+| Every page rendered at 160×50 and 110×45 | Fits; the narrow layout drops the orders panel to fit |
+| Keyboard use in a pseudo-terminal: switching pages, editing and saving targets, scenario mode, quitting | No errors; two bugs found and fixed (typed targets appended to old values; the cursor could jump rows when the pie loaded) |
+| A second client competing for the same rate limit | Last good data kept, with the reason shown |
+| Demo mode end to end, with no credentials | Passed |
+| Repository contents | No credentials, snapshots or targets; screenshots from demo data only |
 
 ---
 
-## Findings from a Live Account
+## 8. Limitations and what's next
 
-Applying the monitor to my own account produced the following. **Monetary balances are deliberately omitted; only ratios and counts are shown.**
-
-![Findings from a live account](docs/images/key-findings-table.svg)
-
-1. **Diversification was lower than it looked.** 54 positions behaved like 11.3 equal-sized holdings, because a few funds and the pie dominated.
-2. **The portfolio was fragmented.** 44 positions were each under 1%, together 27% of value: too small to matter individually, but time-consuming to monitor.
-3. **Funds overlapped.** Three S&P 500 trackers held 24% of the portfolio and two FTSE All-World funds 14%, adding lines without adding diversification. One gold ETC was held on two listings with the same ISIN.
-4. **Performance needed timing context.** The money-weighted return was 10.5% a year, compared with a 10.0% simple unrealised return.
-5. **Costs were low but not zero.** Fees were 0.13% of the amount traded, mostly FX conversion on US shares.
-6. **Data completeness was a real risk.** Before the pagination fix, any analysis of contributions, fees or income would have silently used only the first 50 records.
-
-**Why it matters.** These are exactly the issues a monthly investor can act on: consolidating overlapping funds, directing new money toward under-target holdings, and preferring GBP-quoted funds where FX fees are avoidable. **They are observations about one account, not investment advice.**
-
----
-
-## Data Quality, Auditability and Limitations
-
-### Controls that make the results credible
-
-- Every measure has a written formula, implemented in one place (`insights.py`).
-- Reported figures (values, costs, fees charged, dividends received) come directly from the API. **Estimates** (planned fees, the next-12-month income estimate) are labelled as such.
-- Contributions were reconciled to the account's reported cost.
-- Failures are visible: the status bar shows the reason, and stale data is never presented as fresh.
-
-### Known limitations
-
-| Limitation | Effect | Mitigation / next step |
+| Limitation | Effect | Next step |
 | --- | --- | --- |
-| No historical prices from the API | No benchmark comparison; risk metrics need the monitor's own snapshots | Add an external price source |
-| Snapshots exist only for days the monitor ran | Gaps are treated as a single step | Run daily; document gaps |
-| Several pies are combined for look-through | Allocation inside each pie is approximated | Use per-pie slice quantities |
-| Fee and stamp-duty estimates use fixed rates | Planned costs are approximate | Compare with fees actually charged (shown on Performance) |
-| ISA usage counts deposits only | Transfers from other accounts need checking | Flag transfers explicitly |
-| No automated test suite yet | Regressions rely on manual and scripted checks | Add unit tests for `insights.py` |
+| No historical prices from the API | No "vs the market" comparison; risk measures depend on the tool's own snapshots | Add an outside price source and compare against "every deposit into a global index fund" |
+| Snapshots exist only for days the tool ran | Gaps are treated as a single step | Run it daily |
+| Several pies are combined for look-through | Allocation inside each pie is approximate | Model each pie separately |
+| Planned fees use fixed rates | Estimates only | Compare with fees actually charged (shown on Performance) |
+| The ISA figure counts deposits only | Transfers from another account need a manual check | Flag transfers explicitly |
+| No automated tests yet | Checks are scripted and manual | Unit tests for `insights.py`: XIRR, planner split, drawdown, overlap |
+
+**What the project demonstrates**
+- **Financial judgement:** choosing the right measure (money-weighted vs simple return, look-through vs face value, deposit-adjusted risk), and being clear about estimates.
+- **Decision support:** a no-sell allocation method with an impact preview.
+- **Reliable data engineering:** complete paginated history, rate-limit handling, graceful failure.
+- **Product thinking:** a tool built for a real monthly routine, with demo mode and documentation, and with privacy built in.
+
+The findings describe one account and are not investment advice.
 
 ---
 
-## Reproducibility and Operational Workflow
-
-### Prerequisites
-
-Python 3.9+, and a Trading 212 Invest or Stocks ISA account with a read-only API key. **Or** no account at all, using demo mode.
-
-### Sequence
-
-```bash
-git clone <this repository> && cd <repository>
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-python trading212_dashboard.py --demo         # fictional portfolio, no key needed
-
-cp .env.example .env                          # add your read-only API key
-python trading212_dashboard.py                # live account
-python trading212_dashboard.py --invest 250   # plan a £250 deposit
-python tools/render_screenshots.py            # regenerate README images (demo data)
-```
-
-Operational guidance, keys and troubleshooting: [User Guide](docs/USER_GUIDE.md). Code structure and testing approach: [Development Guide](docs/DEVELOPMENT.md).
-
----
-
-## Project Deliverables and Next Steps
-
-| Deliverable | Repository evidence | Status |
-| --- | --- | --- |
-| API client with rate-limit-aware, complete pagination | `trading212_dashboard.py` (`Trading212Client`) | Complete; pagination defect found and fixed |
-| Holdings/positions transformation with pie look-through | `PortfolioAnalytics` | Complete; matches the app |
-| Analytical measures | `insights.py`, [METRICS.md](docs/METRICS.md) | Complete |
-| Interactive planner with scenario impact | Planner page | Complete; fee figures are estimates |
-| Five-page live terminal interface | `build_screen`, page builders | Complete |
-| Demo data and reproducible screenshots | `demo_data.py`, `tools/render_screenshots.py` | Complete |
-| Benchmark comparison | | Not started (requires an external price source) |
-| Automated tests | | Not started |
-
-### Recommended order of completion
-
-1. Add unit tests for `insights.py` (XIRR, planner split, drawdown, overlap).
-2. Add an external price source for a benchmark ("what if every deposit had gone into a global index fund").
-3. Model several pies separately for look-through allocation.
-4. Optionally export snapshots to a format suited to Power BI.
-
-### What the project demonstrates
-
-- **API integration:** with rate limits and robust failure handling.
-- **Financial measurement:** money-weighted returns, look-through allocation, deposit-adjusted risk, concentration indices.
-- **Decision-support design:** a no-sell allocation algorithm with a before-and-after impact preview.
-- **Disciplined reporting:** reported figures, estimates and limitations are kept clearly separate.
-
----
-
-## Glossary and Reference Material
+## 9. Glossary and references
 
 | Term | Meaning |
 | --- | --- |
-| ISA | Individual Savings Account, a UK tax-free wrapper |
-| Pie | Trading 212 basket of instruments with target weights |
-| Look-through | Analysing the instruments inside a pie or fund wrapper, not the wrapper alone |
-| GBX | Pence sterling; the quote currency of many London listings |
-| XIRR | Extended internal rate of return: annualised, money-weighted return for irregular cash flows |
-| Herfindahl index | Σ(weight²), a concentration measure. Its inverse is the effective number of holdings |
-| Drawdown | Fall from a previous peak value |
-| SDRT | Stamp Duty Reserve Tax, 0.5% on purchases of most UK shares |
-| ETF / ETC | Exchange-traded fund / commodity |
+| ISA | Individual Savings Account: a UK tax-free wrapper with a £20,000 annual allowance |
+| Pie | A Trading 212 basket of instruments with target weights |
+| Look-through | Analysing the stocks inside a pie or fund, not just the wrapper |
+| XIRR | Annualised, money-weighted return for irregular deposits |
+| Effective number of holdings | 1 ÷ Σ(weight²), the inverse Herfindahl index |
+| Drawdown | Fall from a previous peak |
+| GBX | Pence sterling, the quote currency of many London listings |
+| SDRT | Stamp Duty Reserve Tax: 0.5% on purchases of most UK shares |
 
-### Primary references
-
-- [Trading 212 Public API documentation](https://t212public-api-docs.redoc.ly/)
+**References:**
+- [Trading 212 Public API](https://t212public-api-docs.redoc.ly/)
 - [Trading 212 Help Centre: API](https://helpcentre.trading212.com/hc/en-us/articles/14584770928157)
-- [HMRC: Individual Savings Accounts](https://www.gov.uk/individual-savings-accounts)
-- [HMRC: Stamp Duty Reserve Tax](https://www.gov.uk/guidance/stamp-duty-reserve-tax-the-basics)
+- [GOV.UK: Individual Savings Accounts](https://www.gov.uk/individual-savings-accounts)
+- [GOV.UK: Stamp Duty Reserve Tax](https://www.gov.uk/guidance/stamp-duty-reserve-tax-the-basics)
 
-### Repository technical references
-
-- [User Guide](docs/USER_GUIDE.md): operation, pages, planner, configuration, troubleshooting
-- [Metrics](docs/METRICS.md): formula for every figure
-- [Development Guide](docs/DEVELOPMENT.md): architecture, endpoints, testing approach
-- [`insights.py`](insights.py) and [`trading212_dashboard.py`](trading212_dashboard.py)
-
----
-
-*This document is a transparent technical and financial record. Figures labelled as estimates should not be read as broker-reported values, and the live-account findings describe one portfolio, not general investment advice.*
+**In this repository:** [User Guide](docs/USER_GUIDE.md) · [Metrics](docs/METRICS.md) · [Development Guide](docs/DEVELOPMENT.md)

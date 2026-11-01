@@ -1,26 +1,27 @@
-# Trading 212 Portfolio Monitor
+# Next Deposit
 
-This project began with a practical question I faced every month: *where should my next deposit go, and is my investing actually working?* The Trading 212 app shows what each holding is worth, but not whether the portfolio is balanced, how its return compares once deposit timing is considered, what it costs, or how much its funds overlap. I built a live terminal monitor on the official Trading 212 Public API. It uses Python and financial analysis techniques to answer those questions every time new money goes in.
+**A planner and monitor for a monthly investor: where should this month's money go, and is the portfolio actually working?**
 
-## The research question
+I invest every month through a Trading 212 Stocks ISA. Each time, I faced the same decision with no help from the app: *where does this deposit go?* The app shows what each holding is worth. It doesn't show what's under- or over-weight, how my return looks once deposit timing is considered, what I'm paying in fees, or how much my funds overlap. I built Next Deposit on the official Trading 212 Public API to answer those questions. It runs as a live, full-screen terminal app.
+
+## The question
 
 > **For a regular monthly investor, where should the next deposit go, and is the portfolio genuinely performing, diversified and cost-efficient?**
 
-**What the app shows on its own:** account value, the cost of current holdings and an unrealised gain. These are accurate but incomplete:
-- the return ignores *when* each deposit was made;
-- a pie appears as one holding, even though its stocks change currency exposure and can overlap with funds held directly;
-- the number of holdings overstates diversification.
+Next Deposit breaks that into four questions:
 
-**How I investigated it:** I connected to the Trading 212 Public API with a read-only key.
-- **Data:** I retrieved the complete history of transactions, orders and dividends, and standardised currencies and pie holdings.
-- **Measures:** I implemented each financial measure as a documented, independently testable function.
-- **Interface:** the monitor runs as a five-page, full-screen terminal application. Its planner recommends how to split a deposit toward target weights **without selling**, and previews the impact of any purchase before it's made.
+| Question | How it's answered |
+| --- | --- |
+| **Where should my next deposit go?** | Set target weights on screen. The planner splits the deposit toward them **without selling**, and previews the impact before you buy: fees, currency mix, concentration, ISA allowance left |
+| **Is my investing actually working?** | Money in vs market growth, and a **money-weighted annualised return (XIRR)** that accounts for when each deposit went in |
+| **Am I as diversified as I think?** | **Look-through** analysis of every stock inside pies, the effective number of holdings, and funds that track the same index |
+| **What is it earning and costing?** | Dividends by month and yield on cost, fees actually charged, and ISA allowance used |
 
-[Explore the full project methodology and documentation](PROJECT_DOCUMENTATION.md).
+[Read the full project documentation](PROJECT_DOCUMENTATION.md).
 
-## Key findings
+## What it found on my account
 
-Applying the monitor to my own Stocks ISA produced the findings below. **Balances are deliberately omitted; only ratios and counts are shown.**
+Balances are deliberately left out. These are ratios and counts only.
 
 <img src="docs/images/key-findings-table.svg" alt="Findings on a live account: 54 positions behave like 11.3; 44 positions under 1% equal 27% of value; three S&P 500 funds hold 24% and two All-World funds 14%; one gold ETC held on two listings; 10.5% a year money-weighted return versus 10.0% simple; fees 0.13% of amount traded." width="100%" />
 
@@ -28,7 +29,7 @@ Applying the monitor to my own Stocks ISA produced the findings below. **Balance
 <summary>View the findings as a text table</summary>
 
 <table width="100%">
-  <thead><tr><th align="left" width="30%">Question</th><th align="left" width="40%">Finding on a live account</th><th align="left" width="30%">Why it matters</th></tr></thead>
+  <thead><tr><th align="left" width="30%">Question</th><th align="left" width="40%">Finding</th><th align="left" width="30%">Why it matters</th></tr></thead>
   <tbody>
     <tr><td>How diversified is it really?</td><td><strong>54</strong> positions behave like <strong>11.3</strong> equal holdings</td><td>A few holdings drive results</td></tr>
     <tr><td>Is it fragmented?</td><td><strong>44</strong> positions under 1% = <strong>27%</strong> of value</td><td>Hard to monitor, little individual effect</td></tr>
@@ -41,27 +42,29 @@ Applying the monitor to my own Stocks ISA produced the findings below. **Balance
 
 </details>
 
-**Why it matters:** each finding points to something a monthly investor can act on: consolidating overlapping funds, directing new money toward under-target holdings, and preferring GBP-quoted funds where FX fees can be avoided.
+**What it points to:** directing new money toward under-target holdings rather than adding more small positions, consolidating overlapping index funds, and favouring GBP-quoted funds where FX fees can be avoided.
 
-**Basis and limitations:**
-- **Reported vs estimated figures:** values, costs, fees charged and dividends come directly from the Trading 212 API. Planned-purchase fees and the next-12-month income figure are labelled **estimates**.
-- **No historical prices:** the API provides none, so trend and risk measures are built from the monitor's own daily snapshots, and there's no benchmark comparison yet.
-- **One account:** the findings describe a single account and are not investment advice.
+**Getting the data right mattered.** The API returns history in pages of 50, and a path-prefix bug meant every history request had quietly returned only the first page. Money in, fees and dividends would all have been understated, with no visible error. After the fix, the full history loaded: 115 transactions and 158 orders. Net money in now reconciles to Trading 212's reported cost to within £0.22.
 
-## The monitor
+**Limits:**
+- **Estimates:** fee figures for planned purchases are estimates (0.15% FX, 0.5% UK stamp duty).
+- **No price history:** the API provides none, so trends and risk come from the tool's own daily snapshots, and there's no benchmark comparison yet.
+- **One account:** these findings describe a single account and are not investment advice.
 
-<img src="docs/images/page-2-planner.svg" alt="Planner page (demo data): target weights, drift, suggested buys and a before-and-after impact panel showing fees, currency mix, asset type and ISA allowance." width="100%" />
+## The planner
+
+<img src="docs/images/page-2-planner.svg" alt="Planner page (demo data): target weights, drift and suggested buys for a £250 deposit, with an impact panel showing fees, currency mix, asset type and ISA allowance before and after." width="100%" />
 
 <details>
-<summary>View all five pages (demo data)</summary>
+<summary>All five pages (demo data)</summary>
 
-| Page | Decision it supports |
+| Page | Shows |
 | --- | --- |
-| [1 Overview](docs/images/page-1-overview.svg) | What do I own, how is it doing, and how is the value trending? |
-| [2 Planner](docs/images/page-2-planner.svg) | Where should this deposit go, and what will it change? |
-| [3 Performance](docs/images/page-3-performance.svg) | Money in vs market growth, XIRR, deposit streak, ISA allowance, fees |
+| [1 Overview](docs/images/page-1-overview.svg) | Value, P&L, value chart, holdings with entry and current price (the pie as one line, like the app), allocation, recent activity |
+| [2 Planner](docs/images/page-2-planner.svg) | Targets, drift, suggested buys, "what if" scenarios, impact before you buy |
+| [3 Performance](docs/images/page-3-performance.svg) | Money in vs growth, XIRR, monthly deposits and streak, ISA allowance, fees |
 | [4 Income](docs/images/page-4-income.svg) | Dividends by month, yield on cost, top payers |
-| [5 Risk](docs/images/page-5-risk.svg) | Concentration, fund overlap, drawdown and volatility |
+| [5 Risk](docs/images/page-5-risk.svg) | Concentration, overlapping funds, deposit-adjusted drawdown and volatility |
 
 <img src="docs/images/page-1-overview.svg" alt="Overview page (demo data)" width="100%" />
 <img src="docs/images/page-3-performance.svg" alt="Performance page (demo data)" width="100%" />
@@ -70,53 +73,40 @@ Applying the monitor to my own Stocks ISA produced the findings below. **Balance
 
 </details>
 
-All screenshots use a **fictional demo portfolio** (`--demo`), never a real account. They are regenerated with `python tools/render_screenshots.py`.
+Screenshots use a **fictional demo portfolio**, never a real account.
 
-## Data architecture
+## How it works
 
-![Trading 212 portfolio monitor six-stage architecture](docs/images/architecture.svg)
+![How Next Deposit works](docs/images/architecture.svg)
 
-The six stages are Data Sourcing, Data Ingestion, Data Cleaning & Transformation, Data Modelling & Analytics, Data Preparation for Reporting, and Data Visualisation & Insights:
-- **Ingestion** runs on two background threads, so the interface never blocks on the API.
-- **Analysis** sits in `insights.py` as pure functions, separate from presentation.
-- **Your data stays on your machine:** daily snapshots and investment targets are kept locally and are never committed.
+- **No freezing:** two background threads pull live data every 30 seconds and the full history every 30 minutes, waiting out Trading 212's rate limits, so the screen never waits on the network.
+- **Two views of the portfolio:** an app-style **holdings** view (pie as one line) for decisions, and a **look-through** view for diversification and currency exposure.
+- **Documented calculations:** all live in `insights.py`, with every formula written up in [METRICS.md](docs/METRICS.md).
+- **Your data stays on your machine:** daily snapshots and your targets are never committed.
 
-Endpoint choices, transformations and design decisions are explained in [Project Documentation](PROJECT_DOCUMENTATION.md).
-
-### Verified status: 1 November 2026
-
-- Live Stocks ISA connected with a read-only key.
-- Complete history retrieved after fixing a pagination defect that had limited every history call to its first 50 records: 115 transactions, 158 orders and 28 dividends.
-- Net money in reconciled to Trading 212's reported cost of holdings to within £0.22.
-- Holdings view matched the Trading 212 app line by line, including the pie.
-- All five pages rendered at 160×50 and 110×45. Keyboard interaction tested in a pseudo-terminal without exceptions.
-- Demo mode runs end to end without credentials. No credentials or account data are in the repository.
-
-## Run it
+## Try it
 
 ```bash
-git clone https://github.com/TeslimAdeyanju/Trading212-Portfolio-Monitor.git
-cd Trading212-Portfolio-Monitor
+git clone https://github.com/TeslimAdeyanju/next-deposit.git
+cd next-deposit
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-python trading212_dashboard.py --demo      # try it with a fictional portfolio, no account needed
+python trading212_dashboard.py --demo      # fictional portfolio, no account needed
 ```
 
-To use your own account, copy `.env.example` to `.env` and add a **read-only** API key (Trading 212 app → Settings → API), then run `python trading212_dashboard.py`. Press `1`–`5` to switch pages, use `↑` `↓` and `Enter` on the Planner, and `q` to quit.
+With your own account: copy `.env.example` to `.env`, add a **read-only** API key (Trading 212 app → Settings → API), then run `python trading212_dashboard.py`. Press `1`–`5` to switch pages. On the Planner, use `↑` `↓` to select, `Enter` to edit and `m` for "what if" mode. `q` quits.
 
-## Documentation and reproducibility
+## Documentation
 
-| Resource | Contents |
+| | |
 | --- | --- |
-| [Project Documentation](PROJECT_DOCUMENTATION.md) | Research question, account context, six-stage methodology, validation, findings and limitations |
-| [User Guide](docs/USER_GUIDE.md) | Daily use, every page explained, planner walkthroughs, configuration, troubleshooting |
-| [Metrics](docs/METRICS.md) | Definition and formula for every figure: XIRR, planner split, fee estimates, effective holdings, drawdown |
-| [Development Guide](docs/DEVELOPMENT.md) | Code structure, data flow, endpoints and rate limits, testing without the API |
+| [Project Documentation](PROJECT_DOCUMENTATION.md) | The problem, the four questions, how each is answered, findings, build decisions, checks and limitations |
+| [User Guide](docs/USER_GUIDE.md) | Daily use, every page, planner walkthroughs, configuration, troubleshooting |
+| [Metrics](docs/METRICS.md) | The formula behind every figure |
+| [Development Guide](docs/DEVELOPMENT.md) | Code structure, API endpoints and rate limits, testing without an account |
 
-**Source:** [Trading 212 Public API](https://t212public-api-docs.redoc.ly/) (beta; Invest and Stocks ISA accounts).
-
-The monitor is read-only and never places orders. Not affiliated with Trading 212. This is an analysis tool, not financial advice.
+Read-only: Next Deposit never places orders. Not affiliated with Trading 212.
 
 ## Author
 

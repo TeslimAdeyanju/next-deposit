@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A read-only live terminal dashboard for a Trading 212 Invest/ISA account, built on the Trading 212 Public API (v0, beta), aimed at someone who invests monthly. A Streamlit web front end was removed on purpose because the user prefers the terminal, so don't reintroduce one.
+**Next Deposit**: a read-only live terminal planner and monitor for a Trading 212 Invest/ISA account, built on the Trading 212 Public API (v0, beta), aimed at someone who invests monthly. A Streamlit web front end was removed on purpose because the user prefers the terminal, so don't reintroduce one.
 
 - `trading212_dashboard.py`: API client, `PortfolioAnalytics`, snapshots, background data feed and the Rich full-screen UI (plain-ANSI fallback).
 - `insights.py`: pure functions (no API calls, no rendering) for the planner (`auto_buys` → `plan_rows`), scenario impact (`scenario_impact`: look-through currency/type mix and estimated FX/stamp-duty fees), contributions/XIRR, ISA allowance, fees, dividends, overlap/fragmentation and snapshot-based risk.

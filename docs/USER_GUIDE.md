@@ -22,8 +22,8 @@ This guide covers how to run the dashboard day to day, what each page shows, how
 You need Python 3.9 or newer and a Trading 212 **Invest** or **Stocks ISA** account.
 
 ```bash
-git clone https://github.com/TeslimAdeyanju/Trading212-Portfolio-Monitor.git
-cd Trading212-Portfolio-Monitor
+git clone https://github.com/TeslimAdeyanju/next-deposit.git
+cd next-deposit
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -50,7 +50,7 @@ TRADING212_API_SECRET=...
 Add this to `~/.zshrc` (or `~/.bashrc`) to start the dashboard by typing `t212`:
 
 ```bash
-alias t212='cd ~/path/to/Trading212 && .venv/bin/python trading212_dashboard.py'
+alias t212='cd ~/path/to/next-deposit && .venv/bin/python trading212_dashboard.py'
 ```
 
 ---
@@ -81,7 +81,7 @@ python trading212_dashboard.py
 ## 3. The screen
 
 ```
- TRADING 212   1 Overview  2 Planner  3 Performance  4 Income  5 Risk        Updated 09:41:05 · next in 12s
+ NEXT DEPOSIT   1 Overview  2 Planner  3 Performance  4 Income  5 Risk       Updated 09:41:05 · next in 12s
 ╭──────────────╮ ╭──────────────╮ ╭──────────────────╮ ╭──────────────╮ ╭────────────────────╮
 │ £1,250.00    │ │ £1,100.00    │ │ +£150.00 (+13.6%)│ │ £20.00       │ │ 62%                │
 │ Total value  │ │ Invested     │ │ Unrealised P&L   │ │ Cash · 2%    │ │ Win rate · 18/29   │

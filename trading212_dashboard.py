@@ -1,8 +1,9 @@
 """
-Trading 212 Live Portfolio Dashboard
-=====================================
-A real-time terminal dashboard for monitoring your Trading 212 portfolio
-with analytics, P&L tracking, sector allocation, and historical snapshots.
+Next Deposit
+============
+A live terminal planner and monitor for a Trading 212 Stocks ISA / Invest
+account: where the next deposit should go, and whether the portfolio is
+performing, diversified and cost-efficient.
 
 Requirements:
     pip install requests python-dotenv rich
@@ -661,7 +662,7 @@ def render_simple(analytics: PortfolioAnalytics, value_history=None, daily_histo
 
     print()
     print("=" * 76)
-    print(f"  TRADING 212 LIVE PORTFOLIO        {now}")
+    print(f"  NEXT DEPOSIT · TRADING 212        {now}")
     print("=" * 76)
     print(f"  {'Total Value:':<22} {cur} {analytics.total_value:>10.2f}")
     print(f"  {'Invested:':<22} {cur} {analytics.invested:>10.2f}")
@@ -987,7 +988,7 @@ def _screen_header(ctx: dict) -> Table:
     header.add_column()
     header.add_column(justify="right")
     left = Text()
-    left.append(" TRADING 212 ", style="bold white on blue")
+    left.append(" NEXT DEPOSIT ", style="bold white on blue")
     if ctx.get("demo"):
         left.append(" DEMO DATA ", style="bold black on yellow")
     left.append("  ")
@@ -1739,7 +1740,7 @@ class KeyReader:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Live Trading 212 portfolio dashboard")
+    parser = argparse.ArgumentParser(description="Next Deposit: live Trading 212 portfolio planner and monitor")
     parser.add_argument("--invest", type=float, help="deposit amount for the planner (default: monthly_deposit in the config)")
     parser.add_argument("--page", type=int, default=1, choices=range(1, len(PAGES) + 1), help="page to open on")
     parser.add_argument("--demo", action="store_true", help="run on a fictional portfolio (no API key needed)")
