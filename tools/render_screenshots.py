@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 import demo_data  # noqa: E402
 import insights  # noqa: E402
 from rich.console import Console  # noqa: E402
-from trading212_dashboard import PAGES, Planner, PortfolioAnalytics, SnapshotManager, build_screen  # noqa: E402
+from next_deposit import PAGES, Planner, PortfolioAnalytics, SnapshotManager, build_screen  # noqa: E402
 
 WIDTH, HEIGHT = 160, 48
 OUT = ROOT / "docs" / "images"

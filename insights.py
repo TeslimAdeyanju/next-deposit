@@ -1,7 +1,7 @@
 """
 Portfolio insights for a regular (monthly) investor.
 
-Pure functions over Trading 212 API payloads and snapshot history: no API
+Pure functions over broker API payloads and snapshot history: no API
 calls and no rendering, so every number here can be checked in isolation.
 """
 
@@ -413,7 +413,7 @@ def risk_metrics(daily_values: list, flows: list) -> dict:
 
 # ── Scenario impact ────────────────────────────────────────────────────
 
-FX_FEE_RATE = 0.0015  # Trading 212 FX conversion on non-GBP instruments
+FX_FEE_RATE = 0.0015  # broker FX conversion fee on non-GBP instruments
 STAMP_DUTY_RATE = 0.005  # UK shares (not ETFs)
 
 

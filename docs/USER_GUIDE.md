@@ -19,7 +19,7 @@ This guide covers how to run the dashboard day to day, what each page shows, how
 
 ## 1. Setup
 
-You need Python 3.9 or newer and a Trading 212 **Invest** or **Stocks ISA** account.
+You need Python 3.9 or newer. For live data you also need your own **Invest** or **Stocks ISA** account with a broker whose public API this tool reads. The broker's API terms permit personal use only, so check them first.
 
 ```bash
 git clone https://github.com/TeslimAdeyanju/next-deposit.git
@@ -30,27 +30,27 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-No account yet? Run `python trading212_dashboard.py --demo` to explore every page with a fictional portfolio. It needs no API key, and nothing is saved.
+No account yet? Run `python next_deposit.py --demo` to explore every page with a fictional portfolio. It needs no API key, and nothing is saved.
 
 ### API key
 
-1. In the Trading 212 app, open **Settings → API (Beta) → Generate API key**.
+1. In the broker's app, open **Settings → API (Beta) → Generate API key**.
 2. Give it **read-only** permissions: account data, portfolio, history (orders, dividends, transactions), pies and metadata. The dashboard never places orders, so don't grant order permissions.
 3. Paste the key and secret into `.env`:
 
 ```
-TRADING212_API_KEY=...
-TRADING212_API_SECRET=...
+BROKER_API_KEY=...
+BROKER_API_SECRET=...
 ```
 
 `.env` is git-ignored, so it never leaves your machine.
 
 ### Optional shortcut
 
-Add this to `~/.zshrc` (or `~/.bashrc`) to start the dashboard by typing `t212`:
+Add this to `~/.zshrc` (or `~/.bashrc`) to start the dashboard by typing `nd`:
 
 ```bash
-alias t212='cd ~/path/to/next-deposit && .venv/bin/python trading212_dashboard.py'
+alias nd='cd ~/path/to/next-deposit && .venv/bin/python next_deposit.py'
 ```
 
 ---
@@ -58,14 +58,14 @@ alias t212='cd ~/path/to/next-deposit && .venv/bin/python trading212_dashboard.p
 ## 2. Daily routine
 
 ```bash
-cd Trading212
+cd next-deposit
 source .venv/bin/activate
-python trading212_dashboard.py
+python next_deposit.py
 ```
 
-- **Leave it running as long as you like.** It's free: it uses the Trading 212 API only, not any paid service, and very little CPU. It saves one snapshot per day, including just after midnight if it's still running.
+- **Leave it running as long as you like.** It's free: it uses the broker's API only, not any paid service, and very little CPU. It saves one snapshot per day, including just after midnight if it's still running.
 - **Run one copy at a time.** Rate limits are per account, so a second copy (or another script using the same key) makes both slower and can hide your pie for a while.
-- **Keep the Mac awake** while it runs: `caffeinate -i python trading212_dashboard.py`.
+- **Keep the Mac awake** while it runs: `caffeinate -i python next_deposit.py`.
 - **Quit** with `q` or `Ctrl+C`. The terminal goes back to normal.
 
 ### When you add money
@@ -73,7 +73,7 @@ python trading212_dashboard.py
 1. Open the Planner: press `2`, or start with `--page 2` or `--invest 150`.
 2. Check or adjust the deposit amount and your targets.
 3. Read the **Impact before you buy** panel.
-4. Place the orders in the Trading 212 app as **value orders** (£, not shares).
+4. Place the orders in the broker's app as **value orders** (£, not shares).
 5. On the next refresh you'll see the new weights.
 
 ---
@@ -95,7 +95,7 @@ python trading212_dashboard.py
 
 | Card | Meaning |
 |---|---|
-| Total value | Account value reported by Trading 212 (holdings + cash) |
+| Total value | Account value reported by the broker (holdings + cash) |
 | Invested | What your current holdings cost you |
 | Unrealised P&L | Value minus cost of what you hold now (not sold gains) |
 | Cash | Uninvested cash and its share of the total |
@@ -115,7 +115,7 @@ python trading212_dashboard.py
 
 ### Holdings
 
-Holdings are listed the way the Trading 212 app shows them: **your pie is one line**, and each stock or fund shows only the shares held **outside** the pie.
+Holdings are listed the way the broker's app shows them: **your pie is one line**, and each stock or fund shows only the shares held **outside** the pie.
 
 | Column | Meaning |
 |---|---|
@@ -164,7 +164,7 @@ Targets don't have to add up to 100. The planner tells you the total and rescale
 | Now | Current share of your holdings |
 | Target ✎ | Your target (✎ marks the editable column) |
 | Drift | Now minus target. **Cyan = under target, yellow = over**, dim = within 1% |
-| Buy | £ to buy. Green when ≥ £1, yellow when under Trading 212's £1 minimum |
+| Buy | £ to buy. Green when ≥ £1, yellow when under the broker's £1 minimum |
 | After | Share after these buys |
 
 **Why does an over-target holding sometimes still get money?** Targets are shares of your **whole** portfolio. If some holdings have no target (say 30% of your money), every targeted holding is under its target once the new money is counted, so they all get a share. Give every holding a target if you want stricter behaviour.
@@ -191,7 +191,7 @@ These are the stocks in your pie furthest below the pie's own targets. Money add
 
 ### Walkthrough: a monthly £150
 
-1. `python trading212_dashboard.py --invest 150 --page 2`
+1. `python next_deposit.py --invest 150 --page 2`
 2. Check the targets. Edit any that are wrong (`↑`/`↓`, `Enter`, type, `Enter`).
 3. Read the Buy column, e.g. *VWRP £52, VUAG £45, Pie £33, VHYL £20*.
 4. Check the impact panel. Are fees small? Is anything going over 25%? Is the currency mix what you want?
@@ -213,7 +213,7 @@ These are the stocks in your pie furthest below the pie's own targets. Money add
 | **Your money in (net)** | Deposits + transfers in − withdrawals − transfers out |
 | **Market growth on it** | Total value − net money in. The part the market made for you |
 | **Real return … a year** | Money-weighted annualised return (XIRR). It accounts for *when* each deposit went in. Needs 30+ days of history |
-| **Interest on cash** | Interest Trading 212 paid on uninvested cash |
+| **Interest on cash** | Interest the broker paid on uninvested cash |
 | **Fees paid** | FX conversion + stamp duty actually charged on your fills, and as a % of the amount traded |
 
 - **Net money in, last 12 months:** one bar per month, red for months where more went out than in. Below it: your **deposit streak** (consecutive months with a deposit), your average month, and all-time in/out.
@@ -291,9 +291,9 @@ Snapshots are **git-ignored**: they hold your real portfolio history, so they st
 
 | Variable | Default | |
 |---|---|---|
-| `TRADING212_API_KEY` | required | |
-| `TRADING212_API_SECRET` | required | |
-| `TRADING212_BASE_URL` | `https://live.trading212.com/api/v0` | `https://demo.trading212.com/api/v0` for practice accounts |
+| `BROKER_API_KEY` | required | |
+| `BROKER_API_SECRET` | required | |
+| `BROKER_BASE_URL` | the broker's live API endpoint (built in) | Set to the broker's demo endpoint for a practice account |
 | `REFRESH_SECONDS` | `30` | Lower values hit rate limits faster |
 
 ### `portfolio_config.json`
@@ -330,7 +330,7 @@ Created on first run. You can manage targets from the Planner, but you can also 
 | `--page N` | Open on page N (1–5) |
 | `--demo` | Fictional portfolio, no API key; uses a temporary folder, so your snapshots and targets are untouched |
 
-### Constants (top of `trading212_dashboard.py`)
+### Constants (top of `next_deposit.py`)
 
 | Constant | Default | |
 |---|---|---|
@@ -344,12 +344,12 @@ Created on first run. You can manage targets from the Planner, but you can also 
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| ⚠ *Rate limited by Trading 212 — is another dashboard running…* | Another copy, or a script, is using the same API key | Close the other copy. This one recovers on its own |
+| ⚠ *Rate limited by the broker API — is another dashboard running…* | Another copy, or a script, is using the same API key | Close the other copy. This one recovers on its own |
 | Pie missing / holdings show every stock separately | The pie request was rate-limited at startup | Wait ~30s, it fills in. Make sure only one copy is running |
 | Pie shows as `Pie 1234567` | Pie name lookup failed | It retries on later refreshes |
 | Performance / Income say *Loading…* | Full history is downloading at the API's slow history rate | Wait up to a minute |
 | ⚠ *HTTP 401/403: check …* | Wrong or revoked key, or missing permissions | Regenerate the key with read permissions and update `.env` |
-| *Network error* | No internet / Trading 212 unreachable | It keeps the last data and retries |
+| *Network error* | No internet / the broker's API unreachable | It keeps the last data and retries |
 | Layout cut off at the bottom | Terminal too small | Make the window bigger (≥ 140 columns for side-by-side, ~50 rows) |
 | Keys do nothing | The terminal window isn't focused, or input isn't a real terminal | Click the window; run it directly, not through a pipe |
 | Planner edits went to the wrong row | (Fixed) rows used to shift when the pie loaded | Update to the latest version |
@@ -359,7 +359,7 @@ Created on first run. You can manage targets from the Planner, but you can also 
 ## 12. FAQ
 
 **Does it cost anything to leave it running?**
-No. It uses only the Trading 212 API, which is free, and no AI or paid services.
+No. It uses only the broker's API, which is free, and no AI or paid services.
 
 **Can it trade for me?**
 No. It's read-only by design. Use read-only API permissions.
@@ -371,8 +371,8 @@ P&L % compares today's value with what you paid, and ignores timing. XIRR weight
 "Invested" is the cost of what you hold now. "Money in" is cash you deposited minus cash you took out, so it includes cash, interest and realised gains or losses on things you sold.
 
 **Can I compare against the S&P 500?**
-Not yet. Trading 212's API has no historical prices, so that needs an outside data source.
+Not yet. The broker's API has no historical prices, so that needs an outside data source.
 
 ---
 
-*Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.*
+*Next Deposit is an independent, open-source personal project, published as a portfolio case study. It is not affiliated with, endorsed by or sponsored by any broker. It reads the author's own account through the broker's public API with a read-only key, never places orders, and is an analysis tool, not financial advice.*

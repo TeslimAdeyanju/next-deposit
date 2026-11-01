@@ -1,6 +1,6 @@
 # Next Deposit: Project Documentation
 
-**A no-sell deposit planner and portfolio monitor for Trading 212 | Stocks ISA | Python**
+**A no-sell deposit planner and portfolio monitor for a monthly investor | Stocks ISA | Python**
 
 This document explains why I built Next Deposit, the four questions it answers, how each answer is worked out, what it found on my own account, how the system is built, how I checked it, and where it falls short. Formulas for every figure are in [METRICS.md](docs/METRICS.md). Day-to-day use is in the [User Guide](docs/USER_GUIDE.md).
 
@@ -25,7 +25,7 @@ This document explains why I built Next Deposit, the four questions it answers, 
 
 ## 1. The problem
 
-I invest monthly through a Trading 212 Stocks ISA: index funds, some individual shares and a dividend "pie" (a basket that splits each deposit across about 50 stocks). Each month brings the same decision, **where does this money go?**, and the app doesn't help with it. It shows what each holding is worth and its gain, but:
+I invest monthly through a Stocks ISA: index funds, some individual shares and a dividend "pie" (a basket that splits each deposit across about 50 stocks). Each month brings the same decision, **where does this money go?**, and the app doesn't help with it. It shows what each holding is worth and its gain, but:
 
 - **There's no target.** It can't tell you what's under- or over-weight relative to the mix you want, or what a purchase would change.
 - **The return ignores timing.** "+10%" looks the same whether the money went in two years ago or last month.
@@ -74,7 +74,7 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 
 ## 3. Question 2: Is my investing actually working?
 
-**Why the app's figure isn't enough.** Trading 212 reports unrealised gain on what you currently hold. That ignores *when* each deposit was made, and it isn't annualised. £100 up 10% over two years is roughly 4.9% a year. £100 up 10% in two months is far better.
+**Why the app's figure isn't enough.** The broker reports unrealised gain on what you currently hold. That ignores *when* each deposit was made, and it isn't annualised. £100 up 10% over two years is roughly 4.9% a year. £100 up 10% in two months is far better.
 
 **How Next Deposit answers it.** From the complete deposit, withdrawal and transfer history, it reports:
 
@@ -88,7 +88,7 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 
 **Getting complete data was the hard part.** The API returns history in pages of 50. Its "next page" link already contained the API's path prefix, and the original code added it a second time. **Every history request had quietly been returning only the first 50 records.** Any total built on that (money in, fees, dividends) would have been wrong without any visible error. After the fix, the full history loaded: 115 transactions and 158 orders, not 50 of each.
 
-**What it showed.** A money-weighted return of **10.5% a year**, against a simple unrealised return of **10.0%**. Net money in reconciled to Trading 212's reported cost of holdings **to within £0.22**.
+**What it showed.** A money-weighted return of **10.5% a year**, against a simple unrealised return of **10.0%**. Net money in reconciled to the broker's reported cost of holdings **to within £0.22**.
 
 ---
 
@@ -131,7 +131,7 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 
 ![How Next Deposit works](docs/images/architecture.svg)
 
-**Source.** The official Trading 212 Public API (beta), with a **read-only** key. It provides positions, pies, instrument metadata and paginated history, but **no historical prices or portfolio values**, and it's rate-limited per account. Some endpoints allow only one request every 30 or 50 seconds.
+**Source.** The broker's official public API (beta), with a **read-only** key. It provides positions, pies, instrument metadata and paginated history, but **no historical prices or portfolio values**, and it's rate-limited per account. Some endpoints allow only one request every 30 or 50 seconds.
 
 **Decisions that made it usable day to day**
 
@@ -139,13 +139,13 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 | --- | --- |
 | **Two background threads** (live every 30s; full history every 30 min) | The screen never freezes on the network. Slow history paging waits out rate limits without blocking anything |
 | **Keep the last good data on failure**, and show the reason in the status bar | A rate limit or network blip shouldn't blank the screen or show stale numbers as fresh |
-| **Two views of the portfolio**: holdings (pie as one line, matching the app) and look-through positions | Decisions are made at the holding level; diversification and currency exposure need the look-through |
+| **Two views of the portfolio**: holdings (each pie as one line) and look-through positions | Decisions are made at the holding level; diversification and currency exposure need the look-through |
 | **Daily snapshots** (CSV, local only) | The API has no history of values, so the tool builds its own for trends and risk |
 | **All calculations in `insights.py`**, as pure functions | Each figure can be checked on its own, separate from the screen |
 | **Full-screen terminal UI** (Rich), keyboard-driven | Built to be left running. A web version was tried and dropped because the terminal suited monitoring better |
 | **Demo mode** (`--demo`): a fictional portfolio in exact API shapes | Lets anyone try every page without an account; all screenshots come from it |
 
-**Code layout:** `trading212_dashboard.py` (API client, portfolio model, data feed, interface), `insights.py` (calculations), `demo_data.py` (fictional portfolio), `tools/render_screenshots.py`. More in the [Development Guide](docs/DEVELOPMENT.md).
+**Code layout:** `next_deposit.py` (API client, portfolio model, data feed, interface), `insights.py` (calculations), `demo_data.py` (fictional portfolio), `tools/render_screenshots.py`. More in the [Development Guide](docs/DEVELOPMENT.md).
 
 ---
 
@@ -153,8 +153,8 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 
 | Check | Result |
 | --- | --- |
-| Holdings view against the Trading 212 app, including the pie | Matched line by line |
-| Net money in against Trading 212's reported cost of holdings | Within £0.22 |
+| Holding values and quantities against the broker's own figures, including the pie | Agreed |
+| Net money in against the broker's reported cost of holdings | Within £0.22 |
 | Full history retrieval after the pagination fix | 115 transactions, 158 orders, 28 dividends |
 | Every page rendered at 160×50 and 110×45 | Fits; the narrow layout drops the orders panel to fit |
 | Keyboard use in a pseudo-terminal: switching pages, editing and saving targets, scenario mode, quitting | No errors; two bugs found and fixed (typed targets appended to old values; the cursor could jump rows when the pie loaded) |
@@ -190,7 +190,7 @@ The findings describe one account and are not investment advice.
 | Term | Meaning |
 | --- | --- |
 | ISA | Individual Savings Account: a UK tax-free wrapper with a £20,000 annual allowance |
-| Pie | A Trading 212 basket of instruments with target weights |
+| Pie | A broker-managed basket of instruments with target weights |
 | Look-through | Analysing the stocks inside a pie or fund, not just the wrapper |
 | XIRR | Annualised, money-weighted return for irregular deposits |
 | Effective number of holdings | 1 ÷ Σ(weight²), the inverse Herfindahl index |
@@ -199,8 +199,6 @@ The findings describe one account and are not investment advice.
 | SDRT | Stamp Duty Reserve Tax: 0.5% on purchases of most UK shares |
 
 **References:**
-- [Trading 212 Public API](https://t212public-api-docs.redoc.ly/)
-- [Trading 212 Help Centre: API](https://helpcentre.trading212.com/hc/en-us/articles/14584770928157)
 - [GOV.UK: Individual Savings Accounts](https://www.gov.uk/individual-savings-accounts)
 - [GOV.UK: Stamp Duty Reserve Tax](https://www.gov.uk/guidance/stamp-duty-reserve-tax-the-basics)
 
@@ -208,4 +206,4 @@ The findings describe one account and are not investment advice.
 
 ---
 
-*Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.*
+*Next Deposit is an independent, open-source personal project, published as a portfolio case study. It is not affiliated with, endorsed by or sponsored by any broker. It reads the author's own account through the broker's public API with a read-only key, never places orders, and is an analysis tool, not financial advice.*

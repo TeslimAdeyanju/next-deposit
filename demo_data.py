@@ -1,5 +1,5 @@
 """
-Demo mode: a fictional monthly investor, shaped exactly like Trading 212 API
+Demo mode: a fictional monthly investor, shaped exactly like the broker's API
 payloads, so the dashboard can run (and be screenshotted) without an account.
 
 Nothing here is real account data. Tickers are real public instruments; the
@@ -232,7 +232,7 @@ def _dividends(today: date) -> list:
 
 
 class DemoClient:
-    """Stands in for Trading212Client with the same method signatures."""
+    """Stands in for BrokerClient with the same method signatures."""
 
     base_url = "demo"
 
@@ -304,7 +304,7 @@ def demo_environment():
     runs never touch your real snapshots or portfolio_config.json."""
     import json
 
-    root = Path(tempfile.mkdtemp(prefix="t212-demo-"))
+    root = Path(tempfile.mkdtemp(prefix="next-deposit-demo-"))
     write_demo_snapshots(root / "snapshots")
     config = root / "portfolio_config.json"
     config.write_text(json.dumps({

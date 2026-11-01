@@ -1,8 +1,8 @@
 """
 Next Deposit
 ============
-A live terminal planner and monitor for a Trading 212 Stocks ISA / Invest
-account: where the next deposit should go, and whether the portfolio is
+A live terminal planner and monitor for a Stocks ISA / Invest account, using
+the broker's public API: where the next deposit should go, and whether the portfolio is
 performing, diversified and cost-efficient.
 
 Requirements:
@@ -10,7 +10,7 @@ Requirements:
 
 Usage:
     1. Add your API credentials to a .env file (see .env.example)
-    2. Run: python trading212_dashboard.py
+    2. Run: python next_deposit.py   (or: python next_deposit.py --demo)
 
 Author: Teslim Adeyanju
 """
@@ -55,9 +55,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Configuration ──────────────────────────────────────────────────────
-API_KEY = os.getenv("TRADING212_API_KEY", "")
-API_SECRET = os.getenv("TRADING212_API_SECRET", "")
-BASE_URL = os.getenv("TRADING212_BASE_URL", "https://live.trading212.com/api/v0")
+API_KEY = os.getenv("BROKER_API_KEY", "")
+API_SECRET = os.getenv("BROKER_API_SECRET", "")
+BASE_URL = os.getenv("BROKER_BASE_URL", "https://live.trading212.com/api/v0")  # broker's public API endpoint
 REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "30"))
 HISTORY_REFRESH_SECONDS = 1800  # full history (deposits, orders, dividends) changes rarely
 SNAPSHOT_DIR = Path("snapshots")
@@ -68,8 +68,8 @@ SNAPSHOT_DIR.mkdir(exist_ok=True)
 # ── API Client ─────────────────────────────────────────────────────────
 
 
-class Trading212Client:
-    """Lightweight client for the Trading 212 Public API (v0)."""
+class BrokerClient:
+    """Lightweight read-only client for the broker's public API (v0)."""
 
     def __init__(self, api_key: str, api_secret: str, base_url: str):
         self.base_url = base_url
@@ -92,10 +92,10 @@ class Trading212Client:
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code
             if code in (401, 403):
-                self.last_error = f"HTTP {code}: check TRADING212_API_KEY / TRADING212_API_SECRET in .env"
+                self.last_error = f"HTTP {code}: check BROKER_API_KEY / BROKER_API_SECRET in .env"
             elif code == 429:
                 self.last_error = (
-                    "Rate limited by Trading 212 — is another dashboard running "
+                    "Rate limited by the broker API — is another dashboard running "
                     "on this account?"
                 )
             else:
@@ -173,7 +173,7 @@ class Trading212Client:
 
 
 def clean_ticker(ticker: str) -> str:
-    """Strip Trading 212 suffixes: AAPL_US_EQ -> AAPL, VUAGl_EQ -> VUAG.
+    """Strip broker ticker suffixes: AAPL_US_EQ -> AAPL, VUAGl_EQ -> VUAG.
 
     The trailing lowercase letter is the exchange (l = London, d = Xetra, ...).
     """
@@ -662,7 +662,7 @@ def render_simple(analytics: PortfolioAnalytics, value_history=None, daily_histo
 
     print()
     print("=" * 76)
-    print(f"  NEXT DEPOSIT · TRADING 212        {now}")
+    print(f"  NEXT DEPOSIT        {now}")
     print("=" * 76)
     print(f"  {'Total Value:':<22} {cur} {analytics.total_value:>10.2f}")
     print(f"  {'Invested:':<22} {cur} {analytics.invested:>10.2f}")
@@ -1257,7 +1257,7 @@ def _impact_panel(ctx: dict, plan: dict) -> Panel:
     warnings = Text()
     small = [r["key"] for r in rows if 0 < r["buy"] < 1]
     if small:
-        warnings.append(f"\n⚠ Under Trading 212's £1 minimum: {', '.join(small)}", style="yellow")
+        warnings.append(f"\n⚠ Under the £1 minimum order: {', '.join(small)}", style="yellow")
     if impact["unmapped"]:
         warnings.append(f"\n⚠ Not held, impact not modelled: {', '.join(impact['unmapped'])}", style="yellow")
     warnings.append("\nLook-through: pie buys are spread over the pie's stocks. Fees are estimates.", style="dim")
@@ -1587,7 +1587,7 @@ class DataFeed:
     HISTORY_REFRESH_SECONDS, waiting out rate limits as it pages.
     """
 
-    def __init__(self, client: "Trading212Client", snapshots: "SnapshotManager"):
+    def __init__(self, client: "BrokerClient", snapshots: "SnapshotManager"):
         self.client = client
         self.snapshots = snapshots
         self.lock = threading.Lock()
@@ -1655,7 +1655,7 @@ class DataFeed:
         summary = c.account_summary()
         positions = c.positions() if summary else None
         if not summary or positions is None:
-            self._set(error=c.last_error or "Could not reach Trading 212")
+            self._set(error=c.last_error or "Could not reach the broker API")
             return
 
         # /equity/pies allows 1 request / 30s; keep the last good result
@@ -1740,7 +1740,7 @@ class KeyReader:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Next Deposit: live Trading 212 portfolio planner and monitor")
+    parser = argparse.ArgumentParser(description="Next Deposit: live portfolio planner and monitor")
     parser.add_argument("--invest", type=float, help="deposit amount for the planner (default: monthly_deposit in the config)")
     parser.add_argument("--page", type=int, default=1, choices=range(1, len(PAGES) + 1), help="page to open on")
     parser.add_argument("--demo", action="store_true", help="run on a fictional portfolio (no API key needed)")
@@ -1752,11 +1752,11 @@ def main():
         client, snapshot_dir, insights.CONFIG_FILE = demo_data.demo_environment()
         feed = DataFeed(client, SnapshotManager(snapshot_dir))
     elif not API_KEY or not API_SECRET:
-        print("\n  ❌ Add TRADING212_API_KEY and TRADING212_API_SECRET to your .env file!")
-        print("     See .env.example, or try: python trading212_dashboard.py --demo\n")
+        print("\n  ❌ Add BROKER_API_KEY and BROKER_API_SECRET to your .env file!")
+        print("     See .env.example, or try: python next_deposit.py --demo\n")
         return
     else:
-        feed = DataFeed(Trading212Client(API_KEY, API_SECRET, BASE_URL), SnapshotManager())
+        feed = DataFeed(BrokerClient(API_KEY, API_SECRET, BASE_URL), SnapshotManager())
     feed.start()
 
     if not RICH_AVAILABLE:

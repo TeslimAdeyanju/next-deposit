@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600" viewBox="0 0 1600 600" role="img" aria-labelledby="title desc">
 <title id="title">How Next Deposit works</title>
-<desc id="desc">The Trading 212 Public API feeds two background threads: a live feed every 30 seconds and a full-history feed every 30 minutes. A portfolio model builds the app-style holdings view and a look-through positions view. insights.py turns these into answers to four questions: where the next deposit should go, whether the investing is working, how diversified it really is, and what it earns and costs. A five-page terminal interface presents them. Daily snapshots and investor targets are kept on the user's machine only.</desc>
+<desc id="desc">The broker's public API feeds two background threads: a live feed every 30 seconds and a full-history feed every 30 minutes. A portfolio model builds the app-style holdings view and a look-through positions view. insights.py turns these into answers to four questions: where the next deposit should go, whether the investing is working, how diversified it really is, and what it earns and costs. A five-page terminal interface presents them. Daily snapshots and investor targets are kept on the user's machine only.</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#5b6773"/></marker>
 </defs>
@@ -22,7 +22,7 @@
 </g>
 
 <g font-size="22" font-weight="700">
-<text x="60" y="128">Trading 212</text><text x="60" y="154">Public API</text>
+<text x="60" y="128">Broker</text><text x="60" y="154">public API</text>
 <text x="360" y="128">Data feed</text><text x="360" y="154">(background threads)</text>
 <text x="680" y="128">Portfolio model</text>
 <text x="1000" y="128">insights.py</text><text x="1000" y="154">four questions</text>

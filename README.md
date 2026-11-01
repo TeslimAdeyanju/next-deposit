@@ -1,10 +1,10 @@
 # Next Deposit
 
-**A no-sell deposit planner and portfolio monitor for Trading 212.**
+**A no-sell deposit planner and portfolio monitor for a monthly investor's Stocks ISA.**
 
 Next Deposit helps a regular investor decide where the next deposit should go, and tracks money-weighted performance, diversification, fund overlap, income, costs, ISA allowance and deposit-adjusted risk.
 
-I invest every month through a Trading 212 Stocks ISA. Each time, I faced the same decision with no help from the app: *where does this deposit go?* The app shows what each holding is worth. It doesn't show what's under- or over-weight, how my return looks once deposit timing is considered, what I'm paying in fees, or how much my funds overlap. I built Next Deposit on the official Trading 212 Public API to answer those questions. It runs as a live, full-screen terminal app.
+I invest every month through a Stocks ISA. Each time, I faced the same decision with no help from the app: *where does this deposit go?* The app shows what each holding is worth. It doesn't show what's under- or over-weight, how my return looks once deposit timing is considered, what I'm paying in fees, or how much my funds overlap. I built Next Deposit on the broker's official public API to answer those questions. It runs as a live, full-screen terminal app.
 
 ## The question
 
@@ -46,7 +46,7 @@ Balances are deliberately left out. These are ratios and counts only.
 
 **What it points to:** directing new money toward under-target holdings rather than adding more small positions, consolidating overlapping index funds, and favouring GBP-quoted funds where FX fees can be avoided.
 
-**Getting the data right mattered.** The API returns history in pages of 50, and a path-prefix bug meant every history request had quietly returned only the first page. Money in, fees and dividends would all have been understated, with no visible error. After the fix, the full history loaded: 115 transactions and 158 orders. Net money in now reconciles to Trading 212's reported cost to within £0.22.
+**Getting the data right mattered.** The API returns history in pages of 50, and a path-prefix bug meant every history request had quietly returned only the first page. Money in, fees and dividends would all have been understated, with no visible error. After the fix, the full history loaded: 115 transactions and 158 orders. Net money in now reconciles to the broker's reported cost to within £0.22.
 
 **Limits:**
 - **Estimates:** fee figures for planned purchases are estimates (0.15% FX, 0.5% UK stamp duty).
@@ -62,7 +62,7 @@ Balances are deliberately left out. These are ratios and counts only.
 
 | Page | Shows |
 | --- | --- |
-| [1 Overview](docs/images/page-1-overview.svg) | Value, P&L, value chart, holdings with entry and current price (the pie as one line, like the app), allocation, recent activity |
+| [1 Overview](docs/images/page-1-overview.svg) | Value, P&L, value chart, holdings with entry and current price (each pie as one line), allocation, recent activity |
 | [2 Planner](docs/images/page-2-planner.svg) | Targets, drift, suggested buys, "what if" scenarios, impact before you buy |
 | [3 Performance](docs/images/page-3-performance.svg) | Money in vs growth, XIRR, monthly deposits and streak, ISA allowance, fees |
 | [4 Income](docs/images/page-4-income.svg) | Dividends by month, yield on cost, top payers |
@@ -81,12 +81,12 @@ Screenshots use a **fictional demo portfolio**, never a real account.
 
 ![How Next Deposit works](docs/images/architecture.svg)
 
-- **No freezing:** two background threads pull live data every 30 seconds and the full history every 30 minutes, waiting out Trading 212's rate limits, so the screen never waits on the network.
+- **No freezing:** two background threads pull live data every 30 seconds and the full history every 30 minutes, waiting out the broker's rate limits, so the screen never waits on the network.
 - **Two views of the portfolio:** an app-style **holdings** view (pie as one line) for decisions, and a **look-through** view for diversification and currency exposure.
 - **Documented calculations:** all live in `insights.py`, with every formula written up in [METRICS.md](docs/METRICS.md).
 - **Your data stays on your machine:** daily snapshots and your targets are never committed.
 
-## Try it
+## Run the demo
 
 ```bash
 git clone https://github.com/TeslimAdeyanju/next-deposit.git
@@ -94,10 +94,12 @@ cd next-deposit
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-python trading212_dashboard.py --demo      # fictional portfolio, no account needed
+python next_deposit.py --demo      # fictional portfolio, no account needed
 ```
 
-With your own account: copy `.env.example` to `.env`, add a **read-only** API key (Trading 212 app → Settings → API), then run `python trading212_dashboard.py`. Press `1`–`5` to switch pages. On the Planner, use `↑` `↓` to select, `Enter` to edit and `m` for "what if" mode. `q` quits.
+Press `1`–`5` to switch pages. On the Planner, use `↑` `↓` to select, `Enter` to edit and `m` for "what if" mode. `q` quits.
+
+**About live accounts.** I built Next Deposit for my own account, and the code is published as a portfolio case study, not as a service. The broker's API terms allow personal use only, and require the broker's prior written consent for applications intended for other users. The demo shows everything the tool does. If you adapt the code for your own account, read your broker's API terms first.
 
 ## Documentation
 
@@ -110,7 +112,7 @@ With your own account: copy `.env.example` to `.env`, add a **read-only** API ke
 
 ## Disclaimer
 
-Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.
+Next Deposit is an independent, open-source personal project, published as a portfolio case study. It is not affiliated with, endorsed by or sponsored by any broker. It reads the author's own account through the broker's public API with a read-only key, never places orders, and is an analysis tool, not financial advice.
 
 ## Author
 

@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Next Deposit**: a read-only live terminal planner and monitor for a Trading 212 Invest/ISA account, built on the Trading 212 Public API (v0, beta), aimed at someone who invests monthly. A Streamlit web front end was removed on purpose because the user prefers the terminal, so don't reintroduce one.
+**Next Deposit**: a read-only live terminal planner and monitor for an Invest/ISA account, built on the broker's public API (v0, beta), aimed at someone who invests monthly. A Streamlit web front end was removed on purpose because the user prefers the terminal, so don't reintroduce one.
 
-- `trading212_dashboard.py`: API client, `PortfolioAnalytics`, snapshots, background data feed and the Rich full-screen UI (plain-ANSI fallback).
+- `next_deposit.py`: API client, `PortfolioAnalytics`, snapshots, background data feed and the Rich full-screen UI (plain-ANSI fallback).
 - `insights.py`: pure functions (no API calls, no rendering) for the planner (`auto_buys` → `plan_rows`), scenario impact (`scenario_impact`: look-through currency/type mix and estimated FX/stamp-duty fees), contributions/XIRR, ISA allowance, fees, dividends, overlap/fragmentation and snapshot-based risk.
 - `docs/`: `USER_GUIDE.md` (user-facing), `METRICS.md` (formula for every figure; keep in sync when calculations change), `DEVELOPMENT.md`.
 - `demo_data.py` + `tools/render_screenshots.py`: fictional portfolio for `--demo` and the README screenshots. Screenshots must only ever come from demo data.
@@ -16,10 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pip install -r requirements.txt               # requests, python-dotenv, rich
-python trading212_dashboard.py                # live dashboard; q or Ctrl+C quits
-python trading212_dashboard.py --invest 250   # planner uses £250 instead of monthly_deposit
-python trading212_dashboard.py --page 2       # open on a page (1 Overview … 5 Risk)
-python trading212_dashboard.py --demo         # fictional portfolio, no API key
+python next_deposit.py                # live dashboard; q or Ctrl+C quits
+python next_deposit.py --invest 250   # planner uses £250 instead of monthly_deposit
+python next_deposit.py --page 2       # open on a page (1 Overview … 5 Risk)
+python next_deposit.py --demo         # fictional portfolio, no API key
 python tools/render_screenshots.py            # regenerate docs/images/page-*.svg from demo data
 ```
 
@@ -31,16 +31,16 @@ There are no tests, linter config, or build step. To check rendering without the
 
 Read from `.env` via `python-dotenv` at import time (module-level constants):
 
-- `TRADING212_API_KEY`, `TRADING212_API_SECRET`: required; sent as HTTP Basic auth (`key:secret`, base64).
-- `TRADING212_BASE_URL`: defaults to `https://live.trading212.com/api/v0` (swap `live` for `demo` for paper trading).
+- `BROKER_API_KEY`, `BROKER_API_SECRET`: required; sent as HTTP Basic auth (`key:secret`, base64).
+- `BROKER_BASE_URL`: defaults to the broker's live endpoint (hard-coded in `next_deposit.py`, the only place the broker's domain should appear); swap `live` for `demo` for paper trading.
 - `REFRESH_SECONDS`: default 30.
 
 Copy `.env.example` to `.env` (git-ignored).
 
 ## Architecture
 
-1. **`Trading212Client`**: thin `requests` wrapper. `_get` never raises or prints (printing would corrupt the full-screen view). On any error it sets `client.last_error` and returns `None`, so callers must check for `None`. `_paginate(endpoint, limit=None, retries=0)` follows `nextPagePath`, which already includes the `/api/v0` prefix (stripped before reuse). `retries` sleeps and retries rate-limited pages, so only use it off the UI thread.
-2. **`PortfolioAnalytics(summary, positions, instruments, pies)`**: on construction it mutates each raw position dict, adding underscore-prefixed fields (`_value`, `_cost`, `_pnl`, `_pnl_pct`, `_weight`, `_ticker`, `_symbol`, `_name`, `_currency`, `_type`, `_price`, `_avg_price`, `_price_ccy`). Type and short name come only from `/equity/metadata/instruments`. `_ticker` is the raw Trading 212 ticker (written to snapshots), and `_symbol` / `analytics.symbol(ticker)` is the display name. `analytics.holdings` is the app-style view: each position scaled to the quantity held outside pies (`quantity - quantityInPies`), plus one row per pie (value = `result.priceAvgValue` + pie `cash`). The planner targets these rows by `_symbol`. Breakdowns, win rate, concentration, overlap and snapshots use the underlying `positions` (look-through).
+1. **`BrokerClient`**: thin `requests` wrapper. `_get` never raises or prints (printing would corrupt the full-screen view). On any error it sets `client.last_error` and returns `None`, so callers must check for `None`. `_paginate(endpoint, limit=None, retries=0)` follows `nextPagePath`, which already includes the `/api/v0` prefix (stripped before reuse). `retries` sleeps and retries rate-limited pages, so only use it off the UI thread.
+2. **`PortfolioAnalytics(summary, positions, instruments, pies)`**: on construction it mutates each raw position dict, adding underscore-prefixed fields (`_value`, `_cost`, `_pnl`, `_pnl_pct`, `_weight`, `_ticker`, `_symbol`, `_name`, `_currency`, `_type`, `_price`, `_avg_price`, `_price_ccy`). Type and short name come only from `/equity/metadata/instruments`. `_ticker` is the raw the broker ticker (written to snapshots), and `_symbol` / `analytics.symbol(ticker)` is the display name. `analytics.holdings` is the app-style view: each position scaled to the quantity held outside pies (`quantity - quantityInPies`), plus one row per pie (value = `result.priceAvgValue` + pie `cash`). The planner targets these rows by `_symbol`. Breakdowns, win rate, concentration, overlap and snapshots use the underlying `positions` (look-through).
 3. **`SnapshotManager`**: appends to `snapshots/portfolio_history.csv` and `positions_history.csv`. `daily_values()` collapses them to one value per day, used for the chart and `insights.risk_metrics`.
 4. **`DataFeed`**: two daemon threads write into a lock-protected `state` dict. The live thread polls summary/positions every `REFRESH_SECONDS` (pies every ≥30s, instruments until they load) and saves a snapshot once per calendar day per process. The history thread pulls *all* transactions, orders and dividends every `HISTORY_REFRESH_SECONDS` (30 min), waiting out rate limits. Failures keep the last good data and set `state["error"]`.
 5. **UI**: `main()` runs `Live(screen=True)` and redraws every 0.25s from `feed.snapshot()`, reading keys via `KeyReader` (cbreak + `select`). `build_screen(ctx)` = header with tabs + KPI row + `PAGE_BUILDERS[page](ctx)` + footer. Only the Overview measures the other parts and gives the value chart the leftover rows. Layouts switch to two columns at ≥140 columns.

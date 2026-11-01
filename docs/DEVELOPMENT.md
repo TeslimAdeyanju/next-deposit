@@ -6,7 +6,7 @@ How the code is organised, how data flows through it, and how to change it safel
 
 | File | Responsibility |
 |---|---|
-| `trading212_dashboard.py` | Entry point. API client, `PortfolioAnalytics`, `SnapshotManager`, `DataFeed` (background threads), `Planner` (interactive state), `KeyReader`, page builders and `main()` |
+| `next_deposit.py` | Entry point. API client, `PortfolioAnalytics`, `SnapshotManager`, `DataFeed` (background threads), `Planner` (interactive state), `KeyReader`, page builders and `main()` |
 | `insights.py` | **Pure functions only**, with no network calls and no Rich. Config load/save, planner maths, scenario impact, contributions, XIRR, ISA, fees, dividends, overlap, fragmentation, risk |
 | `demo_data.py` | Fictional portfolio in exact API payload shapes (`DemoClient`) plus generated snapshot history; used by `--demo` |
 | `tools/render_screenshots.py` | Regenerates `docs/images/page-*.svg` from demo data |
@@ -19,8 +19,8 @@ Dependencies: `requests`, `python-dotenv`, `rich` (see `requirements.txt`). Rich
 
 ```
              ┌────────────── live thread (every REFRESH_SECONDS) ───────────────┐
-Trading 212 ─┤ summary, positions, pies (≥30s), pie details, instruments         ├─┐
-   API       └────────────── history thread (every HISTORY_REFRESH_SECONDS) ────┘ │
+Broker API  ─┤ summary, positions, pies (≥30s), pie details, instruments         ├─┐
+             └────────────── history thread (every HISTORY_REFRESH_SECONDS) ────┘ │
                   transactions, orders, dividends (all pages, rate-limit aware)    │
                                                                                    ▼
                                                      DataFeed.state  (lock-protected dict)
@@ -38,7 +38,7 @@ Trading 212 ─┤ summary, positions, pies (≥30s), pie details, instruments  
 
 ## API client
 
-`Trading212Client._get` **never raises or prints**, because printing would corrupt the full-screen view. On error it sets `client.last_error` (a readable reason) and returns `None`. Always check for `None`.
+`BrokerClient._get` **never raises or prints**, because printing would corrupt the full-screen view. On error it sets `client.last_error` (a readable reason) and returns `None`. Always check for `None`.
 
 `_paginate(endpoint, limit=None, retries=0)`:
 
@@ -58,7 +58,7 @@ Trading 212 ─┤ summary, positions, pies (≥30s), pie details, instruments  
 | `GET /equity/history/dividends` | dividends | 6 / min |
 | `GET /equity/history/transactions` | deposits, withdrawals, transfers, interest | 6 / min |
 
-Limits are **per account**, so any other client using the same key competes with the dashboard. See the [official API docs](https://t212public-api-docs.redoc.ly/).
+Limits are **per account**, so any other client using the same key competes with the dashboard. See the broker's API documentation for current limits.
 
 ### Payload shapes worth knowing
 
@@ -70,13 +70,13 @@ Limits are **per account**, so any other client using the same key competes with
 
 On construction it adds underscore fields to each raw position dict: `_value _cost _pnl _pnl_pct _weight _ticker _symbol _name _currency _type _price _avg_price _price_ccy`. Renderers and `insights` read these, never the raw API shape.
 
-- `_ticker`: raw Trading 212 ticker (`VUAGl_EQ`), written to snapshots.
+- `_ticker`: raw broker ticker (`VUAGl_EQ`), written to snapshots.
 - `_symbol`: display name (instrument `shortName`, else the cleaned ticker). This is also the planner's target key.
 - `holdings`: the app-style view (direct slices + one row per pie). `positions`: look-through.
 
 ## Testing without the API or a terminal
 
-The quickest check is `python trading212_dashboard.py --demo`. It exercises every page, the planner and the background threads with `DemoClient`, a stand-in for `Trading212Client` with the same methods.
+The quickest check is `python next_deposit.py --demo`. It exercises every page, the planner and the background threads with `DemoClient`, a stand-in for `BrokerClient` with the same methods.
 
 There's no test suite. Rendering is deterministic given a `ctx`, so you can check pages offline from saved payloads:
 
@@ -84,7 +84,7 @@ There's no test suite. Rendering is deterministic given a `ctx`, so you can chec
 import json
 from datetime import datetime
 from rich.console import Console
-from trading212_dashboard import PortfolioAnalytics, Planner, build_screen
+from next_deposit import PortfolioAnalytics, Planner, build_screen
 
 d = json.load(open("fixture.json"))      # {"summary", "positions", "instruments"} saved from the API
 a = PortfolioAnalytics(d["summary"], d["positions"], d["instruments"], pies=None)
@@ -104,7 +104,7 @@ console.print(build_screen(ctx))
 
 ## Conventions
 
-- Keep calculations in `insights.py` and presentation in `trading212_dashboard.py`.
+- Keep calculations in `insights.py` and presentation in `next_deposit.py`.
 - New pages: write `page_<name>(ctx) -> list[renderable]` and add it to `PAGES` and `PAGE_BUILDERS`.
 - Use `_money(value, currency)` for account-currency values and `_share_price(value, quote_ccy)` for prices.
 - Escape user and API text with `rich.markup.escape` before putting it in markup.

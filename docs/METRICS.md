@@ -1,6 +1,6 @@
 # How the numbers are calculated
 
-Every figure on the dashboard, how it's derived, and where it lives in the code. "Account currency" is your Trading 212 account currency, normally GBP.
+Every figure on the dashboard, how it's derived, and where it lives in the code. "Account currency" is your account's base currency, normally GBP.
 
 - [Holdings vs positions](#holdings-vs-positions)
 - [Overview figures](#overview-figures)
@@ -22,7 +22,7 @@ The API returns one **position** per instrument, and its quantity includes any s
 
 | View | Built from | Used for |
 |---|---|---|
-| **Holdings** (`analytics.holdings`) | Each position scaled to `(quantity − quantityInPies) / quantity`, **plus one row per pie** | Holdings table, planner, "largest holding". Matches the Trading 212 app |
+| **Holdings** (`analytics.holdings`) | Each position scaled to `(quantity − quantityInPies) / quantity`, **plus one row per pie** | Holdings table, planner, "largest holding". Matches the broker's app |
 | **Positions** (`analytics.positions`) | Every underlying instrument, including those inside pies | Allocation, win rate, overlap, concentration, snapshots ("look-through") |
 
 A pie's row uses the pie endpoint's figures:
@@ -88,7 +88,7 @@ Each slice is then charged estimated costs and added to that position's value:
 | FX conversion | instrument quoted in a non-GBP currency (USD, EUR…) | 0.15% |
 | Stamp duty (SDRT) | UK-quoted (GBP/GBX) **stock**; ETFs are exempt | 0.5% |
 
-These are estimates: real stamp duty depends on where the company is incorporated, and Trading 212 can change its FX fee. The after-buy currency and asset-type mix is recalculated from the adjusted position values.
+These are estimates: real stamp duty depends on where the company is incorporated, and the broker can change its FX fee. The after-buy currency and asset-type mix is recalculated from the adjusted position values.
 
 **ISA left after** = allowance − deposits this tax year − amount invested.
 
@@ -101,7 +101,7 @@ From `/equity/history/transactions` (all pages):
 | Type | Treated as |
 |---|---|
 | `DEPOSIT` | money in (+) |
-| `TRANSFER` | money in/out using its sign (e.g. between Trading 212 accounts) |
+| `TRANSFER` | money in/out using its sign (e.g. between your accounts at the broker) |
 | `WITHDRAW` | money out (−) |
 | `INTEREST_ON_FREE_CASH` | income (shown separately), not a contribution |
 
