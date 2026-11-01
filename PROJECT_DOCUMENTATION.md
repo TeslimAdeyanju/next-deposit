@@ -129,7 +129,7 @@ It never suggests a sale, and holdings without a target get no new money. A pie 
 
 ## 6. How it's built
 
-![How Next Deposit works](docs/images/architecture.svg)
+<img src="docs/images/next-deposit-pipeline.png" alt="Next Deposit pipeline: broker API (read-only) feeds background feeds (live every 30 seconds, full history every 30 minutes), a portfolio model (holdings and look-through views), financial insights (XIRR, overlap, risk, income, fees, ISA, no-sell planner) and a terminal interface; the four decisions it supports; local-only snapshots, why snapshots exist, and a safe demo mode." width="100%" />
 
 **Source.** The broker's official public API (beta), with a **read-only** key. It provides positions, pies, instrument metadata and paginated history, but **no historical prices or portfolio values**, and it's rate-limited per account. Some endpoints allow only one request every 30 or 50 seconds.
 
