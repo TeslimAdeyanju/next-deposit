@@ -1,6 +1,8 @@
 # Next Deposit
 
-**A planner and monitor for a monthly investor: where should this month's money go, and is the portfolio actually working?**
+**A no-sell deposit planner and portfolio monitor for Trading 212.**
+
+Next Deposit helps a regular investor decide where the next deposit should go, and tracks money-weighted performance, diversification, fund overlap, income, costs, ISA allowance and deposit-adjusted risk.
 
 I invest every month through a Trading 212 Stocks ISA. Each time, I faced the same decision with no help from the app: *where does this deposit go?* The app shows what each holding is worth. It doesn't show what's under- or over-weight, how my return looks once deposit timing is considered, what I'm paying in fees, or how much my funds overlap. I built Next Deposit on the official Trading 212 Public API to answer those questions. It runs as a live, full-screen terminal app.
 
@@ -106,7 +108,9 @@ With your own account: copy `.env.example` to `.env`, add a **read-only** API ke
 | [Metrics](docs/METRICS.md) | The formula behind every figure |
 | [Development Guide](docs/DEVELOPMENT.md) | Code structure, API endpoints and rate limits, testing without an account |
 
-Read-only: Next Deposit never places orders. Not affiliated with Trading 212.
+## Disclaimer
+
+Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.
 
 ## Author
 

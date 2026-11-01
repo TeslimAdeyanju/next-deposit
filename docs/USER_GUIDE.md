@@ -372,3 +372,7 @@ P&L % compares today's value with what you paid, and ignores timing. XIRR weight
 
 **Can I compare against the S&P 500?**
 Not yet. Trading 212's API has no historical prices, so that needs an outside data source.
+
+---
+
+*Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.*

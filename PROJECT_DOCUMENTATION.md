@@ -1,6 +1,6 @@
 # Next Deposit: Project Documentation
 
-**A planner and monitor for a monthly investor | Trading 212 Stocks ISA | Python**
+**A no-sell deposit planner and portfolio monitor for Trading 212 | Stocks ISA | Python**
 
 This document explains why I built Next Deposit, the four questions it answers, how each answer is worked out, what it found on my own account, how the system is built, how I checked it, and where it falls short. Formulas for every figure are in [METRICS.md](docs/METRICS.md). Day-to-day use is in the [User Guide](docs/USER_GUIDE.md).
 
@@ -205,3 +205,7 @@ The findings describe one account and are not investment advice.
 - [GOV.UK: Stamp Duty Reserve Tax](https://www.gov.uk/guidance/stamp-duty-reserve-tax-the-basics)
 
 **In this repository:** [User Guide](docs/USER_GUIDE.md) · [Metrics](docs/METRICS.md) · [Development Guide](docs/DEVELOPMENT.md)
+
+---
+
+*Next Deposit is an independent, open-source project. It is not affiliated with, endorsed by or sponsored by Trading 212, and "Trading 212" is a trademark of its respective owner. It uses the Trading 212 Public API (beta) with your own read-only key, never places orders, and is an analysis tool, not financial advice.*
