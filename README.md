@@ -79,7 +79,7 @@ Screenshots use a **fictional demo portfolio**, never a real account.
 
 ## How it works
 
-![How Next Deposit works](docs/images/architecture.svg)
+<img src="docs/images/next-deposit-pipeline.png" alt="Next Deposit pipeline: broker API (read-only) feeds background feeds, a portfolio model, financial insights and a terminal interface; the four decisions it supports; local-only snapshots and a safe demo mode." width="100%" />
 
 - **No freezing:** two background threads pull live data every 30 seconds and the full history every 30 minutes, waiting out the broker's rate limits, so the screen never waits on the network.
 - **Two views of the portfolio:** an app-style **holdings** view (pie as one line) for decisions, and a **look-through** view for diversification and currency exposure.
