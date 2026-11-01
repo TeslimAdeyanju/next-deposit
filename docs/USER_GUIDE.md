@@ -41,6 +41,7 @@ No account yet? Run `python next_deposit.py --demo` to explore every page with a
 ```
 BROKER_API_KEY=...
 BROKER_API_SECRET=...
+BROKER_BASE_URL=https://<broker-api-host>/api/v0
 ```
 
 `.env` is git-ignored, so it never leaves your machine.
@@ -293,7 +294,7 @@ Snapshots are **git-ignored**: they hold your real portfolio history, so they st
 |---|---|---|
 | `BROKER_API_KEY` | required | |
 | `BROKER_API_SECRET` | required | |
-| `BROKER_BASE_URL` | the broker's live API endpoint (built in) | Set to the broker's demo endpoint for a practice account |
+| `BROKER_BASE_URL` | required | The broker's API endpoint (live, or demo for a practice account), from the broker's API documentation |
 | `REFRESH_SECONDS` | `30` | Lower values hit rate limits faster |
 
 ### `portfolio_config.json`

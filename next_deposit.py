@@ -57,7 +57,7 @@ load_dotenv()
 # ── Configuration ──────────────────────────────────────────────────────
 API_KEY = os.getenv("BROKER_API_KEY", "")
 API_SECRET = os.getenv("BROKER_API_SECRET", "")
-BASE_URL = os.getenv("BROKER_BASE_URL", "https://live.trading212.com/api/v0")  # broker's public API endpoint
+BASE_URL = os.getenv("BROKER_BASE_URL", "").rstrip("/")  # broker's public API endpoint, e.g. https://<host>/api/v0
 REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "30"))
 HISTORY_REFRESH_SECONDS = 1800  # full history (deposits, orders, dividends) changes rarely
 SNAPSHOT_DIR = Path("snapshots")
@@ -1751,8 +1751,8 @@ def main():
 
         client, snapshot_dir, insights.CONFIG_FILE = demo_data.demo_environment()
         feed = DataFeed(client, SnapshotManager(snapshot_dir))
-    elif not API_KEY or not API_SECRET:
-        print("\n  ❌ Add BROKER_API_KEY and BROKER_API_SECRET to your .env file!")
+    elif not API_KEY or not API_SECRET or not BASE_URL:
+        print("\n  ❌ Add BROKER_API_KEY, BROKER_API_SECRET and BROKER_BASE_URL to your .env file!")
         print("     See .env.example, or try: python next_deposit.py --demo\n")
         return
     else:

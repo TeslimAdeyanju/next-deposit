@@ -32,7 +32,7 @@ There are no tests, linter config, or build step. To check rendering without the
 Read from `.env` via `python-dotenv` at import time (module-level constants):
 
 - `BROKER_API_KEY`, `BROKER_API_SECRET`: required; sent as HTTP Basic auth (`key:secret`, base64).
-- `BROKER_BASE_URL`: defaults to the broker's live endpoint (hard-coded in `next_deposit.py`, the only place the broker's domain should appear); swap `live` for `demo` for paper trading.
+- `BROKER_BASE_URL`: required, the broker's API endpoint. It lives only in the local `.env`; the broker's name and domain must not appear anywhere in the repo, including commit messages. Scan staged changes before committing.
 - `REFRESH_SECONDS`: default 30.
 
 Copy `.env.example` to `.env` (git-ignored).
