@@ -1079,6 +1079,56 @@ def _footer(ctx: dict) -> Text:
     return footer
 
 
+def _daily_change_panel(ctx: dict, days: int = 7):
+    """Last few days of total value with the market move (deposits removed),
+    so you can see at a glance whether the portfolio went up or down."""
+    analytics, cur = ctx["analytics"], ctx["analytics"].currency
+    daily = (ctx.get("daily_rows") or [])[-(days + 1):]
+    if not daily:
+        return None
+    sched = insights.value_schedule(daily, insights.contributions(ctx.get("transactions") or []))
+    rows = sched["rows"][:days]
+
+    t = Table.grid(padding=(0, 1), expand=True)
+    t.add_column(no_wrap=True)
+    t.add_column(justify="right", no_wrap=True)
+    t.add_column(justify="right", no_wrap=True)
+    t.add_column(justify="right", no_wrap=True)
+    up = down = 0
+    net = 0.0
+    for r in rows:
+        d = datetime.fromisoformat(r["date"])
+        label = f"{d:%a %d %b}" + (" [cyan]•[/]" if r["live"] else "")
+        mm = r["market_move"]
+        if mm is None:
+            t.add_row(label, _money(r["total_value"], cur), "[dim]—[/]", "")
+            continue
+        gap = r.get("gap_days", 0) > 3  # not a single day's move; shown but not tallied
+        if gap:
+            label += f" [dim]+{r['gap_days'] - 1}d[/]"
+        else:
+            net += mm
+        pct = mm / (r["total_value"] - r["change"]) * 100 if r["total_value"] - r["change"] else 0
+        if mm > 0.005:
+            up += not gap
+            move, style = f"▲ {_money(mm, cur, signed=True)}", "green"
+        elif mm < -0.005:
+            down += not gap
+            move, style = f"▼ {_money(mm, cur, signed=True)}", "red"
+        else:
+            move, style = "■ £0.00", "dim"
+        t.add_row(label, _money(r["total_value"], cur), f"[{style}]{move}[/]", f"[{style}]{pct:+.2f}%[/]")
+
+    summary = Text()
+    summary.append(f"▲ {up} up", style="green")
+    summary.append(" · ")
+    summary.append(f"▼ {down} down", style="red")
+    summary.append(" · net ")
+    summary.append(_money(net, cur, signed=True), style="green" if net >= 0 else "red")
+    summary.append("\nDeposits excluded · • live · +Nd = gap", style="dim")
+    return _panel(Group(t, Text(""), summary), "Daily change", "magenta")
+
+
 def page_overview(ctx: dict) -> list:
     analytics, width = ctx["analytics"], ctx["width"]
     wide = width >= 140
@@ -1092,6 +1142,9 @@ def page_overview(ctx: dict) -> list:
     side = [_panel(_allocation_table(analytics), "Allocation", "cyan")]
     if dividends:
         side.append(_panel(_dividends_table(analytics, dividends), "Recent dividends", "green"))
+    daily_change = _daily_change_panel(ctx)
+    if daily_change is not None:
+        side.append(daily_change)
     left = [holdings]
     if orders and (wide or ctx["height"] >= 55):  # stacked layout is tall
         left.append(_panel(_orders_table(analytics, orders), "Recent orders", "magenta"))
