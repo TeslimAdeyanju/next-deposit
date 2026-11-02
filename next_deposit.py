@@ -807,11 +807,12 @@ def _share_price(value, cur: str) -> str:
 
 
 def _kpi(value: str, label: str, style: str = "bright_white", border: str = "blue"):
-    return Panel(
-        Text.from_markup(f"[bold {style}]{value}[/]\n[dim]{label}[/]"),
-        border_style=border,
-        padding=(0, 1),
-    )
+    """Card with a fixed height: long labels are cut with … rather than wrapping,
+    so every card in a row lines up."""
+    body = Text.from_markup(f"[bold {style}]{value}[/]\n[dim]{label}[/]")
+    body.no_wrap = True
+    body.overflow = "ellipsis"
+    return Panel(body, border_style=border, padding=(0, 1), height=4)
 
 
 def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
@@ -842,7 +843,7 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
             f"[{pstyle}]{_money(p['_pnl'], cur, signed=True)}[/]",
             f"[{pstyle}]{p['_pnl_pct']:+.1f}%[/]",
             f"{p['_weight']:.1f}%",
-            f"[blue]{_bar(p['_weight'], max_w)}[/]",
+            _line_bar(p["_weight"], max_w, 10, "blue"),
         )
     if others:
         ostyle = "green" if others["pnl"] >= 0 else "red"
@@ -874,7 +875,7 @@ def _allocation_table(analytics: "PortfolioAnalytics") -> Table:
         table.add_row(f"[bold]{title}[/]", "", "", "")
         for label, value in items:
             pct = (value / base * 100) if base else 0
-            table.add_row(f"  {label}", _money(value, cur), f"{pct:.0f}%", f"[cyan]{_bar(pct, 100, 8)}[/]")
+            table.add_row(f"  {label}", _money(value, cur), f"{pct:.0f}%", _line_bar(pct, 100, 8, "cyan"))
 
     section("Type", [(k, v["value"]) for k, v in analytics.sector_breakdown.items()])
     section("Currency", list(analytics.currency_exposure.items()))
@@ -952,12 +953,47 @@ def _value_chart_panel(daily_history, value_history, width, chart_height, cur):
 
 
 def _hbar(value: float, max_value: float, width: int = 20) -> str:
-    """Horizontal bar with eighth-block precision."""
+    """Thin horizontal bar (half-character precision). Line characters keep a
+    visible gap between rows, unlike solid blocks."""
     if max_value <= 0 or value <= 0:
         return ""
-    eighths = int(round(min(value / max_value, 1) * width * 8))
-    full, part = divmod(eighths, 8)
-    return "█" * full + (" ▏▎▍▌▋▊▉"[part] if part else "")
+    halves = int(round(min(value / max_value, 1) * width * 2))
+    full, half = divmod(halves, 2)
+    return "━" * full + ("╸" if half else "")
+
+
+def _line_bar(value: float, max_value: float, width: int, style: str) -> str:
+    """Filled part in `style`, remainder as a faint track, same total width."""
+    filled = int(round(min(value / max_value, 1) * width)) if max_value > 0 and value > 0 else 0
+    return f"[{style}]{'━' * filled}[/][grey30]{'━' * (width - filled)}[/]"
+
+
+def _height(renderable, width: int) -> int:
+    """Rows a renderable takes at a given width."""
+    probe = Console(width=max(1, width), file=io.StringIO(), color_system=None)
+    return len(probe.render_lines(renderable, probe.options, pad=False))
+
+
+def _stack(panels: list, target: int, width: int):
+    """Panels stacked vertically, the last one stretched to reach `target` rows."""
+    extra = target - sum(_height(p, width) for p in panels)
+    if extra > 0 and isinstance(panels[-1], Panel):
+        panels[-1].height = _height(panels[-1], width) + extra
+    return Group(*panels)
+
+
+def _columns(left: list, right: list, width: int, right_width: int = None, gap: int = 1):
+    """Two stacks of panels side by side with level bottom edges.
+    right_width=None splits the width in half."""
+    lw = (width - gap) // 2 if right_width is None else width - right_width - gap
+    rw = width - gap - lw
+    rows = max(sum(_height(p, lw) for p in left), sum(_height(p, rw) for p in right))
+    grid = Table.grid(expand=True)
+    grid.add_column(width=lw)
+    grid.add_column(width=gap)
+    grid.add_column(width=rw)
+    grid.add_row(_stack(left, rows, lw), "", _stack(right, rows, rw))
+    return grid
 
 
 def _stat(value: str, label: str, style: str = "bright_white", border: str = "blue"):
@@ -972,15 +1008,14 @@ def _stat_row(*panels):
     return row
 
 
-def _two_columns(left, right, wide: bool, right_width: int = 52):
-    """Side by side on wide terminals, stacked otherwise."""
-    if not wide:
-        return Group(left, right)
-    grid = Table.grid(expand=True, padding=(0, 1))
-    grid.add_column(ratio=1)
-    grid.add_column(width=right_width)
-    grid.add_row(left, right)
-    return grid
+def _two_columns(left, right, ctx: dict, right_width: int = 52):
+    """Aligned side-by-side columns on wide terminals, stacked otherwise.
+    `left` / `right` are a panel or a list of panels."""
+    left = left if isinstance(left, list) else [left]
+    right = right if isinstance(right, list) else [right]
+    if ctx["width"] < 140:
+        return Group(*left, *right)
+    return _columns(left, right, ctx["width"], right_width)
 
 
 def _panel(body, title: str, border: str = "blue", subtitle=None):
@@ -1149,16 +1184,11 @@ def page_overview(ctx: dict) -> list:
     if orders and (wide or ctx["height"] >= 55):  # stacked layout is tall
         left.append(_panel(_orders_table(analytics, orders), "Recent orders", "magenta"))
 
-    body = Table.grid(expand=True, padding=(0, 1))
     if wide:
-        body.add_column(ratio=1)
-        body.add_column(width=44)
-        body.add_row(Group(*left), Group(*side))
-        return [body]
-    body.add_column(ratio=1)
-    body.add_column(ratio=1)
-    body.add_row(*side) if len(side) == 2 else body.add_row(side[0], "")
-    return [holdings, body, *left[1:]]
+        return [_columns(left, side, width, right_width=46)]
+    # Narrow: holdings full width, then the side panels in two level columns
+    half = (len(side) + 1) // 2
+    return [holdings, _columns(side[:half], side[half:] or [Text("")], width), *left[1:]]
 
 
 class Planner:
@@ -1451,7 +1481,7 @@ def page_planner(ctx: dict) -> list:
                 "magenta",
             )
         )
-    return [_two_columns(left, Group(*right), wide, right_width=58)]
+    return [_two_columns(left, right, ctx, right_width=58)]
 
 
 def page_performance(ctx: dict) -> list:
@@ -1527,7 +1557,7 @@ def page_performance(ctx: dict) -> list:
     fees_t.add_row("[dim]Traded (all fills)[/]", f"[dim]{_money(fee['traded'], cur)}[/]")
     side.append(_panel(fees_t, "Costs", "red"))
 
-    return [stats, _two_columns(contrib, Group(*side), ctx["width"] >= 140)]
+    return [stats, _two_columns(contrib, side, ctx)]
 
 
 def page_income(ctx: dict) -> list:
@@ -1558,7 +1588,7 @@ def page_income(ctx: dict) -> list:
     payers = _panel(top, "Top payers, last 12 months", "green")
 
     recent = _panel(_dividends_table(analytics, dividends[:6]), "Latest payments", "green")
-    return [stats, _two_columns(monthly, Group(payers, recent), ctx["width"] >= 140)]
+    return [stats, _two_columns(monthly, [payers, recent], ctx)]
 
 
 def page_risk(ctx: dict) -> list:
@@ -1635,7 +1665,7 @@ def page_risk(ctx: dict) -> list:
     )
     risk_panel = _panel(Group(rt, risk_note), "Risk from your history", "red")
 
-    return [_two_columns(Group(concentration, overlap), risk_panel, ctx["width"] >= 140, right_width=60)]
+    return [_two_columns([concentration, overlap], risk_panel, ctx, right_width=60)]
 
 
 def page_history(ctx: dict) -> list:
