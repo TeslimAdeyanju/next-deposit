@@ -133,7 +133,13 @@ Holdings are listed the way the broker's app shows them: **your pie is one line*
 
 - **Allocation:** Asset type (ETF / Stock) and Currency (GBP / USD / EUR), **look-through**, so the stocks inside your pie count by their own type and currency. GBX (pence) counts as GBP.
 - **Recent dividends / Recent orders:** the latest five of each. Order prices are in the instrument's currency.
-- **Daily change:** the last 7 days of total value, each with its **market move** (deposits removed) as ▲ up or ▼ down, and a tally of up days, down days and the net move. *+Nd* marks a gap of N days without data; gaps are shown but not counted. The full schedule is on the History page (`6`).
+- **Daily change:** the last 7 days of total value, each with its **market move** (deposits removed) as ▲/▼, % and a size bar. Below the line:
+  - **Nd net:** the total market move over those days, with up and down days counted
+  - **Best / Worst:** the biggest single-day gain and loss
+  - **Trend:** the current run of up or down days, and the average daily swing
+  - **Movers since yesterday's close:** the two holdings that gained most and lost most today. Each is the change in value minus any buying, read from `snapshots/positions_eod.json`, which is saved hourly; shown from your second day of running
+
+  *+Nd* marks a gap of N days without data. Gaps are shown but left out of the figures. The full schedule is on the History page (`6`).
 
 ---
 

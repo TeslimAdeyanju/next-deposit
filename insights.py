@@ -445,6 +445,53 @@ def market_status(events: list, now: datetime = None):
     return state, (future[0][0] if future else None)
 
 
+# ── Daily movers ───────────────────────────────────────────────────────
+
+
+def daily_movers(previous: dict, positions: list) -> list:
+    """[(symbol, market move £)] since the previous day's last snapshot,
+    biggest moves first. Move = Δvalue − Δcost, so buys/sells don't count."""
+    out = []
+    for p in positions:
+        prev = previous.get(p["_ticker"])
+        if not prev:
+            continue
+        move = (p["_value"] - prev["value"]) - (p["_cost"] - prev["cost"])
+        if abs(move) >= 0.005:
+            out.append((p["_symbol"], move))
+    return sorted(out, key=lambda m: -abs(m[1]))
+
+
+def daily_stats(rows: list) -> dict:
+    """Stats over consecutive-day rows from value_schedule (gaps > 3 days and
+    the first row excluded): up/down counts, best/worst, streak, average."""
+    days = [r for r in rows if r["market_move"] is not None and r.get("gap_days", 0) <= 3]
+    if not days:
+        return {"count": 0}
+    moves = [r["market_move"] for r in days]
+    streak, direction = 0, None
+    for m in moves:  # rows are newest first
+        d = "up" if m > 0.005 else ("down" if m < -0.005 else "flat")
+        if direction is None:
+            direction = d
+        if d != direction or d == "flat":
+            break
+        streak += 1
+    start_value = days[-1]["total_value"] - days[-1]["change"]
+    return {
+        "count": len(days),
+        "up": sum(m > 0.005 for m in moves),
+        "down": sum(m < -0.005 for m in moves),
+        "net": sum(moves),
+        "net_pct": sum(moves) / start_value * 100 if start_value else 0,
+        "best": max(days, key=lambda r: r["market_move"]),
+        "worst": min(days, key=lambda r: r["market_move"]),
+        "streak": streak,
+        "streak_dir": direction,
+        "avg_abs": sum(abs(m) for m in moves) / len(moves),
+    }
+
+
 # ── Value schedule ──────────────────────────────────────────────────────
 
 

@@ -336,6 +336,17 @@ def demo_environment():
 
     root = Path(tempfile.mkdtemp(prefix="next-deposit-demo-"))
     write_demo_snapshots(root / "snapshots")
+    # Yesterday's per-holding close, so the Daily change panel can show movers
+    rng = random.Random(SEED + 3)
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    closes = {
+        p["instrument"]["ticker"]: {
+            "value": round(p["walletImpact"]["currentValue"] * (1 - rng.uniform(-0.015, 0.015)), 4),
+            "cost": p["walletImpact"]["totalCost"],
+        }
+        for p in _positions(live=False)
+    }
+    (root / "snapshots" / "positions_eod.json").write_text(json.dumps({yesterday: closes}))
     config = root / "portfolio_config.json"
     config.write_text(json.dumps({
         "monthly_deposit": 250,

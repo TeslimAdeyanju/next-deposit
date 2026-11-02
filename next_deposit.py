@@ -45,6 +45,7 @@ try:
     from rich.console import Group
     from rich import box
     from rich.markup import escape
+    from rich.rule import Rule
 
     RICH_AVAILABLE = True
 except ImportError:
@@ -399,6 +400,7 @@ class SnapshotManager:
         self.directory = directory
         self.portfolio_file = directory / "portfolio_history.csv"
         self.positions_file = directory / "positions_history.csv"
+        self.eod_file = directory / "positions_eod.json"  # latest value per holding, per day
 
     def save_snapshot(self, analytics: PortfolioAnalytics, include_positions: bool = True):
         """Append a portfolio row; per-position rows only when include_positions."""
@@ -484,6 +486,28 @@ class SnapshotManager:
                 rows.append(row)
         cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         return [r for r in rows if r["date"] >= cutoff]
+
+    def save_eod(self, analytics: "PortfolioAnalytics", keep_days: int = 10):
+        """Overwrite today's per-holding values (value, cost); keeps the last
+        few days so the next day can show what moved since the close."""
+        data = self.load_eod()
+        today = datetime.now().strftime("%Y-%m-%d")
+        data[today] = {p["_ticker"]: {"value": round(p["_value"], 4), "cost": round(p["_cost"], 4)} for p in analytics.positions}
+        data = dict(sorted(data.items())[-keep_days:])
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self.eod_file.write_text(json.dumps(data))
+
+    def load_eod(self) -> dict:
+        try:
+            return json.loads(self.eod_file.read_text())
+        except (OSError, ValueError):
+            return {}
+
+    def previous_eod(self) -> dict:
+        """Per-holding values at the last save before today ({} if none)."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        earlier = [d for d in self.load_eod() if d < today]
+        return self.load_eod()[max(earlier)] if earlier else {}
 
     def daily_rows(self, days: int = 90, analytics: "PortfolioAnalytics" = None) -> list:
         """One dict per day (last row wins), oldest first; today is live."""
@@ -1193,53 +1217,83 @@ def _footer(ctx: dict) -> Text:
 
 
 def _daily_change_panel(ctx: dict, days: int = 7):
-    """Last few days of total value with the market move (deposits removed),
-    so you can see at a glance whether the portfolio went up or down."""
+    """Recent days of total value with the market move (deposits removed),
+    plus the trend, best/worst day and today's biggest movers."""
     analytics, cur = ctx["analytics"], ctx["analytics"].currency
     daily = (ctx.get("daily_rows") or [])[-(days + 1):]
     if not daily:
         return None
     sched = insights.value_schedule(daily, insights.contributions(ctx.get("transactions") or []))
     rows = sched["rows"][:days]
+    stats = insights.daily_stats(rows)
+    peak = max((abs(r["market_move"]) for r in rows if r["market_move"] is not None and r.get("gap_days", 0) <= 3), default=0)
+
+    def move_text(v, pct=None):
+        if v is None:
+            return "[dim]—[/]", ""
+        style, mark = ("green", "▲") if v > 0.005 else (("red", "▼") if v < -0.005 else ("dim", "■"))
+        return f"[{style}]{mark} {_money(v, cur, signed=True)}[/]", (f"[{style}]{pct:+.2f}%[/]" if pct is not None else "")
 
     t = Table.grid(padding=(0, 1), expand=True)
     t.add_column(no_wrap=True)
     t.add_column(justify="right", no_wrap=True)
     t.add_column(justify="right", no_wrap=True)
     t.add_column(justify="right", no_wrap=True)
-    up = down = 0
-    net = 0.0
+    t.add_column(no_wrap=True)
     for r in rows:
         d = datetime.fromisoformat(r["date"])
-        label = f"{d:%a %d %b}" + (" [cyan]•[/]" if r["live"] else "")
+        recent = (datetime.now() - d).days < 7
+        label = "[bold cyan]Today •[/]" if r["live"] else (f"{d:%a %d}" if recent else f"{d:%d %b}")
         mm = r["market_move"]
+        gap = r.get("gap_days", 0) > 3
         if mm is None:
-            t.add_row(label, _money(r["total_value"], cur), "[dim]—[/]", "")
+            t.add_row(label, _money(r["total_value"], cur), "[dim]—[/]", "", "")
             continue
-        gap = r.get("gap_days", 0) > 3  # not a single day's move; shown but not tallied
+        base = r["total_value"] - r["change"]
+        move, pct = move_text(mm, mm / base * 100 if base else 0)
         if gap:
-            label += f" [dim]+{r['gap_days'] - 1}d[/]"
+            t.add_row(label, _money(r["total_value"], cur), move, pct, f"[dim]+{r['gap_days'] - 1}d[/]")
         else:
-            net += mm
-        pct = mm / (r["total_value"] - r["change"]) * 100 if r["total_value"] - r["change"] else 0
-        if mm > 0.005:
-            up += not gap
-            move, style = f"▲ {_money(mm, cur, signed=True)}", "green"
-        elif mm < -0.005:
-            down += not gap
-            move, style = f"▼ {_money(mm, cur, signed=True)}", "red"
-        else:
-            move, style = "■ £0.00", "dim"
-        t.add_row(label, _money(r["total_value"], cur), f"[{style}]{move}[/]", f"[{style}]{pct:+.2f}%[/]")
+            bar = _hbar(abs(mm), peak, 4) if peak else ""
+            t.add_row(label, _money(r["total_value"], cur), move, pct, f"[{'green' if mm > 0 else 'red'}]{bar}[/]")
 
-    summary = Text()
-    summary.append(f"▲ {up} up", style="green")
-    summary.append(" · ")
-    summary.append(f"▼ {down} down", style="red")
-    summary.append(" · net ")
-    summary.append(_money(net, cur, signed=True), style="green" if net >= 0 else "red")
-    summary.append("\nDeposits excluded · • live · +Nd = gap", style="dim")
-    return _panel(Group(t, Text(""), summary), "Daily change", "magenta")
+    def line(markup: str) -> Text:
+        txt = Text.from_markup(markup)
+        txt.no_wrap, txt.overflow = True, "ellipsis"
+        return txt
+
+    def short(v):  # whole pounds once moves get large, to keep lines short
+        return _money(v, cur, signed=True) if abs(v) < 100 else f"{'+' if v >= 0 else '-'}£{abs(v):,.0f}"
+
+    info = []
+    if stats["count"]:
+        net, _ = move_text(stats["net"])
+        info.append(line(f"[dim]{stats['count']}d net[/] {net} [dim]({stats['net_pct']:+.2f}%)[/] · "
+                         f"[green]{stats['up']}▲[/] [red]{stats['down']}▼[/]"))
+    if stats["count"] >= 2:
+        b, w = stats["best"], stats["worst"]
+        info.append(line(f"[dim]Best[/] [green]{datetime.fromisoformat(b['date']):%a} {short(b['market_move'])}[/]"
+                         f" · [dim]Worst[/] [red]{datetime.fromisoformat(w['date']):%a} {short(w['market_move'])}[/]"))
+        if stats["streak_dir"] in ("up", "down"):
+            colour = "green" if stats["streak_dir"] == "up" else "red"
+            trend = f"[{colour}]{stats['streak']} {stats['streak_dir']} day{'s' if stats['streak'] != 1 else ''} in a row[/]"
+        else:
+            trend = "[dim]flat[/]"
+        info.append(line(f"{trend} · [dim]avg ±{short(stats['avg_abs']).lstrip('+')}/day[/]"))
+    movers = ctx.get("movers")
+    if movers is not None:
+        ups = [m for m in movers if m[1] > 0][:2]
+        downs = [m for m in movers if m[1] < 0][:2]
+        if ups or downs:
+            info.append(line("[dim]Movers since yesterday's close[/]"))
+            if ups:
+                info.append(line("[green]▲ " + " · ".join(f"{sym} {short(v)}" for sym, v in ups) + "[/]"))
+            if downs:
+                info.append(line("[red]▼ " + " · ".join(f"{sym} {short(v)}" for sym, v in downs) + "[/]"))
+        else:
+            info.append(line("[dim]Movers: from tomorrow (needs a close)[/]"))
+    note = line("[dim]Deposits removed · • live[/]")
+    return _panel(Group(t, Rule(style="grey30"), *info, note), "Daily change", "magenta")
 
 
 def page_overview(ctx: dict) -> list:
@@ -1263,7 +1317,7 @@ def page_overview(ctx: dict) -> list:
         left.append(_panel(_orders_table(analytics, orders), "Recent orders", "magenta"))
 
     if wide:
-        return [_columns(left, side, width, right_width=46)]
+        return [_columns(left, side, width, right_width=50 if width >= 165 else 46)]
     # Narrow: holdings full width, then the side panels in two level columns
     half = (len(side) + 1) // 2
     return [holdings, _columns(side[:half], side[half:] or [Text("")], width), *left[1:]]
@@ -1953,6 +2007,7 @@ class DataFeed:
         new_day = self._last_positions_date != today
         if new_day or time.time() - self._last_portfolio_save >= SNAPSHOT_INTERVAL_SECONDS:
             self.snapshots.save_snapshot(analytics, include_positions=new_day)
+            self.snapshots.save_eod(analytics)
             self._last_portfolio_save = time.time()
             self._last_positions_date = today
         with self.lock:
@@ -1963,6 +2018,7 @@ class DataFeed:
             error=None,
             daily=self.snapshots.daily_values(days=90, live_value=analytics.total_value),
             daily_rows=self.snapshots.daily_rows(days=400, analytics=analytics),
+            movers=insights.daily_movers(self.snapshots.previous_eod(), analytics.positions),
         )
 
 

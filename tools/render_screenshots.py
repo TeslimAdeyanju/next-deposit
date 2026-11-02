@@ -46,6 +46,7 @@ def main():
             daily=SnapshotManager(snapshot_dir).daily_values(90, analytics.total_value),
             daily_rows=SnapshotManager(snapshot_dir).daily_rows(400, analytics),
             schedules=insights.schedules_by_id(client.exchanges()),
+            movers=insights.daily_movers(SnapshotManager(snapshot_dir).previous_eod(), analytics.positions),
         )
         console = Console(width=WIDTH, record=True, file=open("/dev/null", "w"))
         console.print(build_screen(ctx))

@@ -6,4 +6,5 @@ __pycache__/
 
 # Personal data: stays on this machine, never committed
 snapshots/*.csv
+snapshots/*.json
 portfolio_config.json
