@@ -59,6 +59,7 @@ API_KEY = os.getenv("BROKER_API_KEY", "")
 API_SECRET = os.getenv("BROKER_API_SECRET", "")
 BASE_URL = os.getenv("BROKER_BASE_URL", "").rstrip("/")  # broker's public API endpoint, e.g. https://<host>/api/v0
 REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "30"))
+SNAPSHOT_INTERVAL_SECONDS = 3600  # portfolio value saved at most hourly
 HISTORY_REFRESH_SECONDS = 1800  # full history (deposits, orders, dividends) changes rarely
 SNAPSHOT_DIR = Path("snapshots")
 TOP_N_POSITIONS = 15  # rows shown before the rest are rolled into "+N others"
@@ -374,7 +375,8 @@ class SnapshotManager:
         self.portfolio_file = directory / "portfolio_history.csv"
         self.positions_file = directory / "positions_history.csv"
 
-    def save_snapshot(self, analytics: PortfolioAnalytics):
+    def save_snapshot(self, analytics: PortfolioAnalytics, include_positions: bool = True):
+        """Append a portfolio row; per-position rows only when include_positions."""
         today = datetime.now().strftime("%Y-%m-%d")
         now = datetime.now().isoformat()
 
@@ -409,6 +411,9 @@ class SnapshotManager:
                     f"{analytics.win_rate:.1f}",
                 ]
             )
+
+        if not include_positions:
+            return
 
         # Position-level snapshot
         exists = self.positions_file.exists()
@@ -454,6 +459,31 @@ class SnapshotManager:
                 rows.append(row)
         cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         return [r for r in rows if r["date"] >= cutoff]
+
+    def daily_rows(self, days: int = 90, analytics: "PortfolioAnalytics" = None) -> list:
+        """One dict per day (last row wins), oldest first; today is live."""
+        by_date = {}
+        for row in self.load_history(days):
+            try:
+                by_date[row["date"]] = {
+                    "date": row["date"],
+                    "total_value": float(row["total_value"]),
+                    "invested": float(row["invested"]) if row.get("invested") else None,
+                    "pnl": float(row["pnl"]) if row.get("pnl") else None,
+                    "live": False,
+                }
+            except (ValueError, KeyError):
+                pass
+        if analytics is not None:
+            today = datetime.now().strftime("%Y-%m-%d")
+            by_date[today] = {
+                "date": today,
+                "total_value": analytics.total_value,
+                "invested": analytics.invested,
+                "pnl": analytics.total_pnl,
+                "live": True,
+            }
+        return [by_date[d] for d in sorted(by_date)]
 
     def daily_values(self, days: int = 90, live_value: float = None):
         """One (date, total_value) per day, last row wins; today uses live_value."""
@@ -980,7 +1010,7 @@ def _monthly_bars(series: list, cur: str, style: str) -> Table:
 
 # ── Pages ──────────────────────────────────────────────────────────────
 
-PAGES = ["Overview", "Planner", "Performance", "Income", "Risk"]
+PAGES = ["Overview", "Planner", "Performance", "Income", "Risk", "History"]
 
 
 def _screen_header(ctx: dict) -> Table:
@@ -1042,7 +1072,7 @@ def _footer(ctx: dict) -> Text:
             + f" over {CONCENTRATION_THRESHOLD}%   ",
             style="yellow",
         )
-    keys = "1-5/←→ pages"
+    keys = "1-6/←→ pages"
     if ctx["page"] == 1:
         keys += " · ↑↓ Enter edit · m auto/scenario · r reload"
     footer.append(f"{keys} · q quit", style="dim")
@@ -1555,7 +1585,78 @@ def page_risk(ctx: dict) -> list:
     return [_two_columns(Group(concentration, overlap), risk_panel, ctx["width"] >= 140, right_width=60)]
 
 
-PAGE_BUILDERS = [page_overview, page_planner, page_performance, page_income, page_risk]
+def page_history(ctx: dict) -> list:
+    """Day-by-day schedule of total value: change, money in, market move."""
+    analytics, cur = ctx["analytics"], ctx["analytics"].currency
+    daily = ctx.get("daily_rows") or []
+    flows = insights.contributions(ctx.get("transactions") or [])
+    sched = insights.value_schedule(daily, flows)
+    s = sched["summary"]
+
+    def signed(v):
+        if v is None:
+            return "[dim]—[/]"
+        style = "green" if v > 0.005 else ("red" if v < -0.005 else "dim")
+        return f"[{style}]{_money(v, cur, signed=True)}[/]"
+
+    parts = []
+    if s:
+        mstyle = "green" if s["market_move"] >= 0 else "red"
+        best, worst = s["best"], s["worst"]
+        parts.append(_stat_row(
+            _stat(_money(s["change"], cur, signed=True), f"Change since {datetime.fromisoformat(s['from']):%d %b}", border="blue"),
+            _stat(_money(s["money_in"], cur, signed=True), "of which money in", border="cyan"),
+            _stat(f"{_money(s['market_move'], cur, signed=True)} ({s['market_pct']:+.1f}%)", "of which market move", style=mstyle, border=mstyle),
+            _stat(_money(best["market_move"], cur, signed=True), f"Best day · {datetime.fromisoformat(best['date']):%d %b}", style="green", border="green"),
+            _stat(_money(worst["market_move"], cur, signed=True), f"Worst day · {datetime.fromisoformat(worst['date']):%d %b}", style="red", border="red"),
+        ))
+
+    t = Table(box=box.SIMPLE_HEAD, padding=(0, 1), expand=True, show_edge=False)
+    t.add_column("Date", no_wrap=True)
+    t.add_column("Total value", justify="right", no_wrap=True)
+    t.add_column("Change", justify="right", no_wrap=True)
+    t.add_column("%", justify="right", no_wrap=True)
+    t.add_column("Money in", justify="right", no_wrap=True)
+    t.add_column("Market move", justify="right", no_wrap=True)
+    t.add_column("", no_wrap=True, ratio=1)
+    t.add_column("Invested", justify="right", no_wrap=True)
+    t.add_column("Unrealised P&L", justify="right", no_wrap=True)
+
+    peak = max((abs(r["market_move"]) for r in sched["rows"] if r["market_move"] is not None), default=0)
+    max_rows = max(5, ctx["height"] - (19 if s else 13))
+    for r in sched["rows"][:max_rows]:
+        d = datetime.fromisoformat(r["date"])
+        label = f"{d:%a %d %b %Y}" + (" [bold cyan]today · live[/]" if r["live"] else "")
+        if r.get("gap_days", 0) > 1:
+            label += f" [dim](+{r['gap_days'] - 1}d gap)[/]"
+        mm = r["market_move"]
+        bar = ""
+        if mm:
+            bar = f"[{'green' if mm > 0 else 'red'}]{_hbar(abs(mm), peak, 16)}[/]"
+        t.add_row(
+            label,
+            f"[bold]{_money(r['total_value'], cur)}[/]",
+            signed(r["change"]),
+            "[dim]—[/]" if r["change_pct"] is None else f"{r['change_pct']:+.2f}%",
+            "[dim]—[/]" if not r["money_in"] else f"[cyan]{_money(r['money_in'], cur, signed=True)}[/]",
+            signed(mm),
+            bar,
+            _money(r["invested"], cur) if r["invested"] is not None else "[dim]—[/]",
+            signed(r["pnl"]),
+        )
+    hidden = len(sched["rows"]) - max_rows
+    note = Text(
+        ("" if s else "Only one day so far: the schedule starts filling in from tomorrow. ")
+        + "Each day shows its latest saved value (saved hourly while the monitor runs); today is live. "
+        "Money in = deposits/withdrawals since the previous row; market move = the rest."
+        + (f" {hidden} older days not shown; enlarge the window to see more." if hidden > 0 else ""),
+        style="dim",
+    )
+    parts.append(_panel(Group(t, note), f"Value schedule [dim]· {len(daily)} day{'s' if len(daily) != 1 else ''}[/]", "blue"))
+    return parts
+
+
+PAGE_BUILDERS = [page_overview, page_planner, page_performance, page_income, page_risk, page_history]
 
 
 def build_screen(ctx: dict):
@@ -1607,7 +1708,8 @@ class DataFeed:
         self._instruments_tried = 0.0
         self._raw_pies = None
         self._pies_fetched = 0.0
-        self._last_snapshot_date = None
+        self._last_positions_date = None
+        self._last_portfolio_save = 0.0
 
     def start(self):
         threading.Thread(target=self._live_loop, daemon=True).start()
@@ -1675,9 +1777,13 @@ class DataFeed:
 
         analytics = PortfolioAnalytics(summary, positions, self._instruments, pies)
         today = datetime.now().strftime("%Y-%m-%d")
-        if self._last_snapshot_date != today:
-            self.snapshots.save_snapshot(analytics)
-            self._last_snapshot_date = today
+        # Portfolio value at most hourly (so each day ends with its latest
+        # value); per-position rows once a day
+        new_day = self._last_positions_date != today
+        if new_day or time.time() - self._last_portfolio_save >= SNAPSHOT_INTERVAL_SECONDS:
+            self.snapshots.save_snapshot(analytics, include_positions=new_day)
+            self._last_portfolio_save = time.time()
+            self._last_positions_date = today
         with self.lock:
             self.value_history.append((datetime.now(), analytics.total_value))
         self._set(
@@ -1685,6 +1791,7 @@ class DataFeed:
             updated_at=datetime.now(),
             error=None,
             daily=self.snapshots.daily_values(days=90, live_value=analytics.total_value),
+            daily_rows=self.snapshots.daily_rows(days=400, analytics=analytics),
         )
 
 
@@ -1786,7 +1893,7 @@ def main():
                 # arrows to move the cursor, ...)
                 if page == 1 and planner and planner.handle(key, analytics.holdings):
                     continue
-                if key in ("1", "2", "3", "4", "5"):
+                if key in ("1", "2", "3", "4", "5", "6"):
                     page = int(key) - 1
                 elif key == "right":
                     page = (page + 1) % len(PAGES)

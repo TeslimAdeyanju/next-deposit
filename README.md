@@ -58,7 +58,7 @@ Balances are deliberately left out. These are ratios and counts only.
 <img src="docs/images/page-2-planner.svg" alt="Planner page (demo data): target weights, drift and suggested buys for a £250 deposit, with an impact panel showing fees, currency mix, asset type and ISA allowance before and after." width="100%" />
 
 <details>
-<summary>All five pages (demo data)</summary>
+<summary>All six pages (demo data)</summary>
 
 | Page | Shows |
 | --- | --- |
@@ -67,11 +67,13 @@ Balances are deliberately left out. These are ratios and counts only.
 | [3 Performance](docs/images/page-3-performance.svg) | Money in vs growth, XIRR, monthly deposits and streak, ISA allowance, fees |
 | [4 Income](docs/images/page-4-income.svg) | Dividends by month, yield on cost, top payers |
 | [5 Risk](docs/images/page-5-risk.svg) | Concentration, overlapping funds, deposit-adjusted drawdown and volatility |
+| [6 History](docs/images/page-6-history.svg) | Day-by-day schedule of total value: change, money in vs market move, invested and unrealised P&L |
 
 <img src="docs/images/page-1-overview.svg" alt="Overview page (demo data)" width="100%" />
 <img src="docs/images/page-3-performance.svg" alt="Performance page (demo data)" width="100%" />
 <img src="docs/images/page-4-income.svg" alt="Income page (demo data)" width="100%" />
 <img src="docs/images/page-5-risk.svg" alt="Risk page (demo data)" width="100%" />
+<img src="docs/images/page-6-history.svg" alt="History page (demo data)" width="100%" />
 
 </details>
 
@@ -97,7 +99,7 @@ pip install -r requirements.txt
 python next_deposit.py --demo      # fictional portfolio, no account needed
 ```
 
-Press `1`–`5` to switch pages. On the Planner, use `↑` `↓` to select, `Enter` to edit and `m` for "what if" mode. `q` quits.
+Press `1`–`6` to switch pages. On the Planner, use `↑` `↓` to select, `Enter` to edit and `m` for "what if" mode. `q` quits.
 
 **About live accounts.** I built Next Deposit for my own account, and the code is published as a portfolio case study, not as a service. The broker's API terms allow personal use only, and require the broker's prior written consent for applications intended for other users. The demo shows everything the tool does. If you adapt the code for your own account, read your broker's API terms first.
 

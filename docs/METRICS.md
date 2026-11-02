@@ -12,6 +12,7 @@ Every figure on the dashboard, how it's derived, and where it lives in the code.
 - [Income](#income)
 - [Concentration and overlap](#concentration-and-overlap)
 - [Risk from snapshots](#risk-from-snapshots)
+- [Value schedule](#value-schedule-history-page)
 - [Currencies](#currencies)
 
 ---
@@ -194,6 +195,18 @@ index₀ = 1,  indexₜ = indexₜ₋₁ × (1 + rₜ)
 Snapshot gaps (days the dashboard didn't run) are treated as a single step between the two dates.
 
 ---
+
+## Value schedule (History page)
+
+`insights.value_schedule` uses one value per day (the last snapshot row of each date; today is live). For consecutive rows *p → c*:
+
+```
+change      = Vc − Vp                      (and ÷ Vp for %)
+money in    = Σ contributions with  p.date < date ≤ c.date
+market move = change − money in
+```
+
+The summary covers the first to the last row. Best/worst day use only rows whose gap from the previous row is ≤ 3 days.
 
 ## Currencies
 

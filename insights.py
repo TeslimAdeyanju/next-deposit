@@ -411,6 +411,48 @@ def risk_metrics(daily_values: list, flows: list) -> dict:
     return out
 
 
+# ── Value schedule ──────────────────────────────────────────────────────
+
+
+def value_schedule(daily_rows: list, flows: list) -> dict:
+    """Day-by-day movement of total value, newest first.
+
+    Each change is split into money in (deposits/withdrawals since the
+    previous row, up to and including this date) and market move (the rest).
+    """
+    rows = []
+    for prev, cur in zip(daily_rows, daily_rows[1:]):
+        money_in = sum(a for d, a in flows if prev["date"] < d.isoformat() <= cur["date"])
+        change = cur["total_value"] - prev["total_value"]
+        rows.append({
+            **cur,
+            "change": change,
+            "change_pct": change / prev["total_value"] * 100 if prev["total_value"] else 0,
+            "money_in": money_in,
+            "market_move": change - money_in,
+            "gap_days": (date.fromisoformat(cur["date"]) - date.fromisoformat(prev["date"])).days,
+        })
+    if daily_rows:  # the first day has nothing to compare with
+        rows.insert(0, {**daily_rows[0], "change": None, "change_pct": None, "money_in": None, "market_move": None, "gap_days": 0})
+    rows.reverse()  # newest first; the first day ends up last
+
+    summary = None
+    # Best/worst only among consecutive-ish days, not multi-day gaps
+    daily_moves = [r for r in rows[:-1] if r["gap_days"] <= 3] or rows[:-1]
+    if len(daily_rows) >= 2:
+        first, last = daily_rows[0], daily_rows[-1]
+        money_in = sum(a for d, a in flows if first["date"] < d.isoformat() <= last["date"])
+        change = last["total_value"] - first["total_value"]
+        summary = {
+            "from": first["date"], "to": last["date"], "days": len(daily_rows),
+            "change": change, "money_in": money_in, "market_move": change - money_in,
+            "market_pct": (change - money_in) / first["total_value"] * 100 if first["total_value"] else 0,
+            "best": max(daily_moves, key=lambda r: r["market_move"]),
+            "worst": min(daily_moves, key=lambda r: r["market_move"]),
+        }
+    return {"rows": rows, "summary": summary}
+
+
 # ── Scenario impact ────────────────────────────────────────────────────
 
 FX_FEE_RATE = 0.0015  # broker FX conversion fee on non-GBP instruments

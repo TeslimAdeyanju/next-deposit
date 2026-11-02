@@ -10,6 +10,7 @@ This guide covers how to run the dashboard day to day, what each page shows, how
 - [6. Page 3: Performance](#6-page-3-performance)
 - [7. Page 4: Income](#7-page-4-income)
 - [8. Page 5: Risk](#8-page-5-risk)
+- [8b. Page 6: History](#8b-page-6-history)
 - [9. Daily snapshots](#9-daily-snapshots)
 - [10. Configuration reference](#10-configuration-reference)
 - [11. Troubleshooting](#11-troubleshooting)
@@ -82,7 +83,7 @@ python next_deposit.py
 ## 3. The screen
 
 ```
- NEXT DEPOSIT   1 Overview  2 Planner  3 Performance  4 Income  5 Risk       Updated 09:41:05 · next in 12s
+ NEXT DEPOSIT   1 Overview  2 Planner  3 Performance  4 Income  5 Risk  6 History  Updated 09:41:05 · next in 12s
 ╭──────────────╮ ╭──────────────╮ ╭──────────────────╮ ╭──────────────╮ ╭────────────────────╮
 │ £1,250.00    │ │ £1,100.00    │ │ +£150.00 (+13.6%)│ │ £20.00       │ │ 62%                │
 │ Total value  │ │ Invested     │ │ Unrealised P&L   │ │ Cash · 2%    │ │ Win rate · 18/29   │
@@ -271,9 +272,26 @@ These get more meaningful the more days the dashboard has run.
 
 ---
 
+## 8b. Page 6: History
+
+A **schedule of your total value**, one row per day, newest first:
+
+| Column | Meaning |
+|---|---|
+| Date | The day. **today · live** updates every refresh. *(+Nd gap)* marks days the monitor didn't run |
+| Total value | That day's latest saved value |
+| Change / % | Movement since the previous row |
+| Money in | Deposits/withdrawals since the previous row (so adding money isn't mistaken for growth) |
+| Market move | Change − money in: what the market did. The bar shows its size |
+| Invested / Unrealised P&L | Cost of holdings and paper gain at that point |
+
+The cards above it summarise the period: change since the first day, split into money in and market move, plus the best and worst single days (gaps of more than 3 days are left out of best/worst).
+
+The schedule fills in from your daily snapshots, so it grows by one row each day the monitor runs. If the window is too short for every row, the oldest are hidden.
+
 ## 9. Daily snapshots
 
-On the first refresh of each calendar day, the dashboard appends rows to:
+While it runs, the dashboard appends a portfolio row **at most once an hour** (so each day's last row is its latest value), and per-position rows **once a day**:
 
 | File | Columns |
 |---|---|
@@ -328,7 +346,7 @@ Created on first run. You can manage targets from the Planner, but you can also 
 | Option | |
 |---|---|
 | `--invest AMOUNT` | Planner deposit for this run |
-| `--page N` | Open on page N (1–5) |
+| `--page N` | Open on page N (1–6) |
 | `--demo` | Fictional portfolio, no API key; uses a temporary folder, so your snapshots and targets are untouched |
 
 ### Constants (top of `next_deposit.py`)
