@@ -43,7 +43,8 @@ pie return = result.priceAvgResult  (and result.priceAvgResultCoef × 100 as %)
 | Total value | `summary.totalValue` |
 | Invested | `summary.investments.totalCost` |
 | Unrealised P&L | `summary.investments.unrealizedProfitLoss`, and ÷ Invested for % |
-| Cash | `summary.cash.free`, and ÷ Total value for % |
+| Holdings value | `summary.investments.currentValue` (= Invested + Unrealised P&L; includes pie cash) |
+| Cash | `summary.cash.availableToTrade` + `summary.cash.reservedForOrders`, and ÷ Total value for %. Total value = Holdings value + Cash |
 | Win rate | positions with P&L > 0 ÷ all positions |
 | Position value / cost / P&L | `walletImpact.currentValue` / `totalCost` / `unrealizedProfitLoss` (account currency) |
 | Return % | (value − cost) ÷ cost |

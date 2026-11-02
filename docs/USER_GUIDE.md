@@ -97,10 +97,10 @@ python next_deposit.py
 
 | Card | Meaning |
 |---|---|
-| Total value | Account value reported by the broker (holdings + cash) |
+| Total value | Account value reported by the broker. The label shows the split: **holdings + cash**, so the two always add up |
 | Invested | What your current holdings cost you |
-| Unrealised P&L | Value minus cost of what you hold now (not sold gains) |
-| Cash | Uninvested cash and its share of the total |
+| Unrealised P&L | Holdings value minus Invested (not sold gains). Cash isn't included, so Total value − Invested ≠ P&L whenever you hold cash |
+| Cash | Cash outside your investments: available to trade **plus cash reserved for pending orders** (shown as *£x pending*) |
 | Win rate | Positions in profit / all positions (look-through, including pie stocks) |
 
 - **Footer:** the keys that work on the current page, plus a **concentration alert** on the Overview when any holding is over 25%.

@@ -304,7 +304,22 @@ class PortfolioAnalytics:
 
     @property
     def cash(self):
-        return self.summary.get("cash", {}).get("free", 0)
+        """Cash held outside investments: available to trade plus reserved for
+        pending orders. (Pie cash is already inside investments.currentValue.)"""
+        c = self.summary.get("cash", {}) or {}
+        available = c.get("availableToTrade", c.get("free", 0)) or 0
+        return available + (c.get("reservedForOrders") or 0)
+
+    @property
+    def cash_reserved(self):
+        """Cash committed to orders that haven't filled yet."""
+        return (self.summary.get("cash", {}) or {}).get("reservedForOrders") or 0
+
+    @property
+    def holdings_value(self):
+        """Current value of investments; Invested + Unrealised P&L = this."""
+        inv = self.summary.get("investments", {}) or {}
+        return inv.get("currentValue", self.invested + self.total_pnl)
 
     @property
     def currency(self):
@@ -1078,8 +1093,16 @@ def _kpi_row(analytics: "PortfolioAnalytics") -> Table:
     cur = analytics.currency
     pnl_style = "green" if analytics.total_pnl >= 0 else "red"
     cash_pct = (analytics.cash / analytics.total_value * 100) if analytics.total_value else 0
+    cash_label = (
+        f"Cash · {_money(analytics.cash_reserved, cur)} pending"
+        if analytics.cash_reserved
+        else f"Cash · {cash_pct:.0f}%"
+    )
     return _stat_row(
-        _kpi(_money(analytics.total_value, cur), "Total value"),
+        _kpi(
+            _money(analytics.total_value, cur),
+            f"Holdings {_money(analytics.holdings_value, cur)} + cash {_money(analytics.cash, cur)}",
+        ),
         _kpi(_money(analytics.invested, cur), "Invested", border="cyan"),
         _kpi(
             f"{_money(analytics.total_pnl, cur, signed=True)} ({analytics.total_pnl_pct:+.1f}%)",
@@ -1087,7 +1110,7 @@ def _kpi_row(analytics: "PortfolioAnalytics") -> Table:
             style=pnl_style,
             border=pnl_style,
         ),
-        _kpi(_money(analytics.cash, cur), f"Cash · {cash_pct:.0f}%", border="yellow"),
+        _kpi(_money(analytics.cash, cur), cash_label, border="yellow"),
         _kpi(
             f"{analytics.win_rate:.0f}%",
             f"Win rate · {len(analytics.winners)}/{len(analytics.positions)}",
