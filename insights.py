@@ -438,7 +438,8 @@ def value_schedule(daily_rows: list, flows: list) -> dict:
 
     summary = None
     # Best/worst only among consecutive-ish days, not multi-day gaps
-    daily_moves = [r for r in rows[:-1] if r["gap_days"] <= 3] or rows[:-1]
+    daily_moves = [r for r in rows[:-1] if r["gap_days"] <= 3]
+    comparable = len(daily_moves) >= 2  # best vs worst needs two days to compare
     if len(daily_rows) >= 2:
         first, last = daily_rows[0], daily_rows[-1]
         money_in = sum(a for d, a in flows if first["date"] < d.isoformat() <= last["date"])
@@ -447,8 +448,9 @@ def value_schedule(daily_rows: list, flows: list) -> dict:
             "from": first["date"], "to": last["date"], "days": len(daily_rows),
             "change": change, "money_in": money_in, "market_move": change - money_in,
             "market_pct": (change - money_in) / first["total_value"] * 100 if first["total_value"] else 0,
-            "best": max(daily_moves, key=lambda r: r["market_move"]),
-            "worst": min(daily_moves, key=lambda r: r["market_move"]),
+            "best": max(daily_moves, key=lambda r: r["market_move"]) if comparable else None,
+            "worst": min(daily_moves, key=lambda r: r["market_move"]) if comparable else None,
+            "daily_moves": len(daily_moves),
         }
     return {"rows": rows, "summary": summary}
 

@@ -285,7 +285,7 @@ A **schedule of your total value**, one row per day, newest first:
 | Market move | Change − money in: what the market did. The bar shows its size |
 | Invested / Unrealised P&L | Cost of holdings and paper gain at that point |
 
-The cards above it summarise the period: change since the first day, split into money in and market move, plus the best and worst single days (gaps of more than 3 days are left out of best/worst).
+The cards above it summarise the period: change since the first day, split into money in and market move, plus the best and worst single days. These appear once there are two day-to-day moves; gaps of more than 3 days are left out.
 
 The schedule fills in from your daily snapshots, so it grows by one row each day the monitor runs. If the window is too short for every row, the oldest are hidden.
 

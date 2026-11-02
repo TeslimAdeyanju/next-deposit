@@ -1607,8 +1607,10 @@ def page_history(ctx: dict) -> list:
             _stat(_money(s["change"], cur, signed=True), f"Change since {datetime.fromisoformat(s['from']):%d %b}", border="blue"),
             _stat(_money(s["money_in"], cur, signed=True), "of which money in", border="cyan"),
             _stat(f"{_money(s['market_move'], cur, signed=True)} ({s['market_pct']:+.1f}%)", "of which market move", style=mstyle, border=mstyle),
-            _stat(_money(best["market_move"], cur, signed=True), f"Best day · {datetime.fromisoformat(best['date']):%d %b}", style="green", border="green"),
-            _stat(_money(worst["market_move"], cur, signed=True), f"Worst day · {datetime.fromisoformat(worst['date']):%d %b}", style="red", border="red"),
+            _stat(_money(best["market_move"], cur, signed=True), f"Best day · {datetime.fromisoformat(best['date']):%d %b}", style="green", border="green")
+            if best else _stat("—", f"Best day · {s['daily_moves']}/2 days so far", style="dim", border="green"),
+            _stat(_money(worst["market_move"], cur, signed=True), f"Worst day · {datetime.fromisoformat(worst['date']):%d %b}", style="red", border="red")
+            if worst else _stat("—", f"Worst day · {s['daily_moves']}/2 days so far", style="dim", border="red"),
         ))
 
     t = Table(box=box.SIMPLE_HEAD, padding=(0, 1), expand=True, show_edge=False)
