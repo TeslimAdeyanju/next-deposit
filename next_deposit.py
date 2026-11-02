@@ -260,14 +260,18 @@ class PortfolioAnalytics:
             })
         for pie in self.pies or []:
             result = pie.get("result") or {}
+            pie_cash = pie.get("cash") or 0
+            cost = (result.get("priceAvgInvestedValue") or 0) + pie_cash
+            pnl = result.get("priceAvgResult") or 0
             rows.append({
                 "_symbol": pie.get("name") or f"Pie {pie.get('id')}",
                 "_name": pie.get("name") or f"Pie {pie.get('id')}",
-                # The app shows a pie's value including its uninvested cash
-                "_value": (result.get("priceAvgValue") or 0) + (pie.get("cash") or 0),
-                "_cost": result.get("priceAvgInvestedValue") or 0,
-                "_pnl": result.get("priceAvgResult") or 0,
-                "_pnl_pct": (result.get("priceAvgResultCoef") or 0) * 100,
+                # Uninvested pie cash counts in both value and cost (as in the
+                # account totals), so Value − Cost = Return on this row too
+                "_value": (result.get("priceAvgValue") or 0) + pie_cash,
+                "_cost": cost,
+                "_pnl": pnl,
+                "_pnl_pct": pnl / cost * 100 if cost else 0,
                 "_currency": "",
                 "_price_ccy": "",
                 "_price": None,
@@ -873,6 +877,21 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
             f"{others['weight']:.1f}%",
             "",
         )
+    # Totals use the account's own figures (as on the cards); the rows add up
+    # to them to within a penny of rounding
+    t_value = analytics.holdings_value
+    t_cost = analytics.invested
+    t_pnl = analytics.total_pnl
+    tstyle = "green" if t_pnl >= 0 else "red"
+    table.add_section()
+    table.add_row(
+        "[bold]Total[/]", "", "", "",
+        f"[bold]{_money(t_value, cur)}[/]",
+        f"[bold {tstyle}]{_money(t_pnl, cur, signed=True)}[/]",
+        f"[{tstyle}]{(t_pnl / t_cost * 100 if t_cost else 0):+.1f}%[/]",
+        "100.0%",
+        "",
+    )
     return table
 
 

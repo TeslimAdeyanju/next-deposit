@@ -30,9 +30,11 @@ A pie's row uses the pie endpoint's figures:
 
 ```
 pie value  = result.priceAvgValue + pie cash
-pie cost   = result.priceAvgInvestedValue
-pie return = result.priceAvgResult  (and result.priceAvgResultCoef × 100 as %)
+pie cost   = result.priceAvgInvestedValue + pie cash
+pie return = result.priceAvgResult            (and ÷ pie cost for %)
 ```
+
+Uninvested pie cash counts in both value and cost, the same way the account totals treat it. So Value − Cost = Return on the pie row, and the holdings **Total** row ties to the cards: Σ value = holdings value (`investments.currentValue`), Σ cost = Invested, Σ return = Unrealised P&L. The pie's % is therefore slightly lower than a figure that leaves the uninvested cash out.
 
 ---
 
