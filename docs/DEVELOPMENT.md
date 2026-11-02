@@ -51,7 +51,8 @@ Broker API  ─┤ summary, positions, pies (≥30s), pie details, instruments  
 |---|---|---|
 | `GET /equity/account/summary` | KPIs | 1 / 2s |
 | `GET /equity/positions` | positions | 1 / 1s |
-| `GET /equity/metadata/instruments` | type, short name (large) | 1 / 50s |
+| `GET /equity/metadata/instruments` | type, short name, `workingScheduleId` (large) | 1 / 50s |
+| `GET /equity/metadata/exchanges` | trading schedules (OPEN/CLOSE/pre-market/after-hours events) for the Market column | 1 / 30s |
 | `GET /equity/pies` | pie value/result/cash | 1 / 30s |
 | `GET /equity/pies/{id}` | pie name, slice targets | 1 / 5s |
 | `GET /equity/history/orders` | fills, fees | 6 / min |

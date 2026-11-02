@@ -125,11 +125,38 @@ def _pie_detail(positions: list) -> dict:
     }
 
 
+def _schedule_id(ticker: str) -> int:
+    """1 = US, 2 = London, 3 = Frankfurt (by ticker suffix)."""
+    return 1 if ticker.endswith("_US_EQ") else (3 if ticker.endswith("d_EQ") else 2)
+
+
 def _instruments() -> list:
     return [
-        {"ticker": t, "type": kind, "isin": isin, "currencyCode": ccy, "name": name, "shortName": short}
+        {"ticker": t, "type": kind, "isin": isin, "currencyCode": ccy, "name": name, "shortName": short,
+         "workingScheduleId": _schedule_id(t)}
         for t, name, short, isin, ccy, kind, *_ in INSTRUMENTS
     ]
+
+
+def _exchanges(today: date) -> list:
+    """Weekday trading sessions (UTC) around today, in the API's shape."""
+    sessions = {
+        1: ("US", [("PRE_MARKET_OPEN", 9, 0), ("OPEN", 14, 30), ("CLOSE", 21, 0), ("AFTER_HOURS_OPEN", 21, 0), ("AFTER_HOURS_CLOSE", 25, 0)]),
+        2: ("London", [("OPEN", 8, 0), ("CLOSE", 16, 30)]),
+        3: ("Frankfurt", [("OPEN", 7, 0), ("CLOSE", 15, 30)]),
+    }
+    out = []
+    for sid, (name, events) in sessions.items():
+        times = []
+        for offset in range(-3, 8):
+            day = today + timedelta(days=offset)
+            if day.weekday() >= 5:
+                continue
+            for kind, hour, minute in events:
+                when = datetime(day.year, day.month, day.day) + timedelta(hours=hour, minutes=minute)
+                times.append({"date": when.strftime("%Y-%m-%dT%H:%M:00.000Z"), "type": kind})
+        out.append({"id": sid, "name": name, "workingSchedules": [{"id": sid, "timeEvents": times}]})
+    return out
 
 
 def _deposit_schedule(today: date) -> list:
@@ -248,6 +275,9 @@ class DemoClient:
 
     def instruments(self):
         return _instruments()
+
+    def exchanges(self):
+        return _exchanges(self.today)
 
     def pies(self):
         return [_pie(_positions())]

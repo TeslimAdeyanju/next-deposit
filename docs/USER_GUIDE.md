@@ -127,6 +127,7 @@ Holdings are listed the way the broker's app shows them: **your pie is one line*
 | Value | Current value in £ |
 | Return / % | Unrealised gain in £ and %. **This includes currency moves**, so a US stock's price can be up while its £ return is down |
 | Weight | Share of your holdings, with a bar scaled to your largest holding |
+| Market · until | Whether that stock's exchange is trading now: **● Open** (green), **◐ Pre-mkt / After-hrs / Overnight** (yellow, extended sessions) or **○ Closed** (grey), and the local time it next changes (weekday shown if not today). On medium-width terminals only the status is shown. The pie shows — because it spans several markets |
 
 ### Allocation, dividends and orders
 

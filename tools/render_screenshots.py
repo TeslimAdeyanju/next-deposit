@@ -45,6 +45,7 @@ def main():
             dividends=client.history_dividends(), pie_details=details, value_history=session,
             daily=SnapshotManager(snapshot_dir).daily_values(90, analytics.total_value),
             daily_rows=SnapshotManager(snapshot_dir).daily_rows(400, analytics),
+            schedules=insights.schedules_by_id(client.exchanges()),
         )
         console = Console(width=WIDTH, record=True, file=open("/dev/null", "w"))
         console.print(build_screen(ctx))

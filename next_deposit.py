@@ -112,6 +112,10 @@ class BrokerClient:
     def positions(self):
         return self._get("/equity/positions")
 
+    def exchanges(self):
+        """Exchanges with their trading schedules (open/close events)."""
+        return self._get("/equity/metadata/exchanges")
+
     def instruments(self):
         return self._get("/equity/metadata/instruments")
 
@@ -234,6 +238,7 @@ class PortfolioAnalytics:
             p["_price"] = p.get("currentPrice")
             p["_avg_price"] = p.get("averagePricePaid")
             p["_type"] = (meta.get("type") or "Unknown").title().replace("Etf", "ETF")
+            p["_schedule_id"] = meta.get("workingScheduleId")
 
     def _build_holdings(self):
         """Direct (non-pie) slice of each position plus one row per pie."""
@@ -256,6 +261,7 @@ class PortfolioAnalytics:
                 "_price": p["_price"],
                 "_avg_price": p["_avg_price"],
                 "_type": p["_type"],
+                "_schedule_id": p["_schedule_id"],
                 "_is_pie": False,
             })
         for pie in self.pies or []:
@@ -834,11 +840,36 @@ def _kpi(value: str, label: str, style: str = "bright_white", border: str = "blu
     return Panel(body, border_style=border, padding=(0, 1), height=4)
 
 
-def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
+MARKET_STYLES = {  # state: (mark, colour, short label)
+    "open": ("●", "green", "Open"),
+    "closed": ("○", "grey50", "Closed"),
+    "pre-market": ("◐", "yellow", "Pre-mkt"),
+    "after hours": ("◐", "yellow", "After-hrs"),
+    "overnight": ("◐", "yellow", "Overnight"),
+}
+
+
+def _market_cell(schedule_id, schedules: dict, with_time: bool = True) -> str:
+    """'● Open 21:00' style status for one instrument: the state now and, in
+    local time, when it next changes (weekday shown if not today)."""
+    state, nxt = insights.market_status((schedules or {}).get(schedule_id))
+    if state is None:
+        return "[dim]—[/]"
+    mark, style, label = MARKET_STYLES.get(state, ("○", "grey50", "Closed"))
+    until = ""
+    if nxt and with_time:
+        local = nxt.astimezone()
+        until = f" [dim]{local:%H:%M}[/]" if local.date() == datetime.now().date() else f" [dim]{local:%a %H:%M}[/]"
+    return f"[{style}]{mark} {label}[/]{until}"
+
+
+def _holdings_table(analytics: "PortfolioAnalytics", name_width: int, schedules: dict = None, compact: bool = False) -> Table:
+    """compact (tight widths): drop the weight bar and the market 'until' time
+    so the investment names keep their room."""
     cur = analytics.currency
     shown, others = _split_positions(analytics)
     table = Table(box=box.SIMPLE_HEAD, padding=(0, 1), expand=True, show_edge=False)
-    table.add_column("Investment", style="bold", max_width=name_width, no_wrap=True, overflow="ellipsis", ratio=1)
+    table.add_column("Investment", style="bold", min_width=16, max_width=name_width, no_wrap=True, overflow="ellipsis", ratio=1)
     table.add_column("Ticker", style="cyan", no_wrap=True)
     table.add_column("Entry", justify="right", style="dim", no_wrap=True)
     table.add_column("Price", justify="right", no_wrap=True)
@@ -846,7 +877,9 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
     table.add_column("Return", justify="right", no_wrap=True)
     table.add_column("%", justify="right", no_wrap=True)
     table.add_column("Weight", justify="right", no_wrap=True)
-    table.add_column("", no_wrap=True)
+    if not compact:
+        table.add_column("", no_wrap=True)
+    table.add_column("Market" if compact else "Market · until", no_wrap=True)
 
     max_w = analytics.top_holding_weight
     for p in shown:
@@ -862,7 +895,8 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
             f"[{pstyle}]{_money(p['_pnl'], cur, signed=True)}[/]",
             f"[{pstyle}]{p['_pnl_pct']:+.1f}%[/]",
             f"{p['_weight']:.1f}%",
-            _line_bar(p["_weight"], max_w, 10, "blue"),
+            *([] if compact else [_line_bar(p["_weight"], max_w, 7, "blue")]),
+            "[dim]—[/]" if p["_is_pie"] else _market_cell(p.get("_schedule_id"), schedules, with_time=not compact),
         )
     if others:
         ostyle = "green" if others["pnl"] >= 0 else "red"
@@ -875,6 +909,7 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
             f"[{ostyle}]{_money(others['pnl'], cur, signed=True)}[/]",
             f"[{ostyle}]{others['pnl_pct']:+.1f}%[/]",
             f"{others['weight']:.1f}%",
+            *([] if compact else [""]),
             "",
         )
     # Totals use the account's own figures (as on the cards); the rows add up
@@ -890,6 +925,7 @@ def _holdings_table(analytics: "PortfolioAnalytics", name_width: int) -> Table:
         f"[bold {tstyle}]{_money(t_pnl, cur, signed=True)}[/]",
         f"[{tstyle}]{(t_pnl / t_cost * 100 if t_cost else 0):+.1f}%[/]",
         "100.0%",
+        *([] if compact else [""]),
         "",
     )
     return table
@@ -1213,7 +1249,7 @@ def page_overview(ctx: dict) -> list:
     orders = (ctx.get("orders") or [])[:5]
 
     holdings = _panel(
-        _holdings_table(analytics, name_width=34 if wide else 28),
+        _holdings_table(analytics, name_width=30 if wide else 26, schedules=ctx.get("schedules"), compact=wide and width < 165),
         f"Holdings [dim]· {len(analytics.holdings)}[/]",
     )
     side = [_panel(_allocation_table(analytics), "Allocation", "cyan")]
@@ -1829,10 +1865,12 @@ class DataFeed:
             "orders": None,
             "dividends": None,
             "pie_details": {},
+            "schedules": {},
             "daily": [],
         }
         self._instruments = []
         self._instruments_tried = 0.0
+        self._schedules_fetched = 0.0
         self._raw_pies = None
         self._pies_fetched = 0.0
         self._last_positions_date = None
@@ -1880,6 +1918,12 @@ class DataFeed:
         if not self._instruments and time.time() - self._instruments_tried >= 60:
             self._instruments_tried = time.time()
             self._instruments = c.instruments() or []
+        # Exchange schedules (for open/closed): cover ~2 weeks, refresh every 6h
+        if time.time() - self._schedules_fetched >= (6 * 3600 if self.state["schedules"] else 60):
+            self._schedules_fetched = time.time()
+            exchanges = c.exchanges()
+            if exchanges:
+                self._set(schedules=insights.schedules_by_id(exchanges))
 
         summary = c.account_summary()
         positions = c.positions() if summary else None

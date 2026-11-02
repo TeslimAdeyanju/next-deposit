@@ -411,6 +411,40 @@ def risk_metrics(daily_values: list, flows: list) -> dict:
     return out
 
 
+# ── Market hours ───────────────────────────────────────────────────────
+
+MARKET_STATES = {
+    "OPEN": "open",
+    "CLOSE": "closed",
+    "PRE_MARKET_OPEN": "pre-market",
+    "AFTER_HOURS_OPEN": "after hours",
+    "AFTER_HOURS_CLOSE": "closed",
+    "OVERNIGHT_OPEN": "overnight",
+}
+
+
+def schedules_by_id(exchanges: list) -> dict:
+    """{workingScheduleId: [(utc datetime, event type), ...] sorted}."""
+    out = {}
+    for ex in exchanges or []:
+        for ws in ex.get("workingSchedules") or []:
+            events = sorted((_parse_dt(e["date"]), e["type"]) for e in ws.get("timeEvents") or [])
+            out[ws["id"]] = events
+    return out
+
+
+def market_status(events: list, now: datetime = None):
+    """(state, next_change_utc) from a schedule: the latest event that has
+    happened decides the state; the next event is when it changes."""
+    if not events:
+        return None, None
+    now = now or datetime.now().astimezone()
+    past = [e for e in events if e[0] <= now]
+    future = [e for e in events if e[0] > now]
+    state = MARKET_STATES.get(past[-1][1], "closed") if past else "closed"
+    return state, (future[0][0] if future else None)
+
+
 # ── Value schedule ──────────────────────────────────────────────────────
 
 
